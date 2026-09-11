@@ -1,0 +1,22 @@
+.login-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: var(--space-8) var(--space-6); background: linear-gradient(155deg, var(--color-primary-soft), var(--color-bg) 55%); }
+.login-content { width: min(100%, 440px); }
+.login-brand { text-align: center; margin-bottom: var(--space-8); }
+.login-brand .brand-mark { margin: 0 auto var(--space-4); }
+.login-description { margin-top: var(--space-3); color: var(--color-muted); }
+.login-card { padding: var(--space-8); }
+.login-heading { margin-bottom: var(--space-6); }
+.login-heading p { margin-top: var(--space-2); }
+.login-form { display: grid; gap: var(--space-4); }
+.login-form .form-field { font-weight: 400; }
+.login-submit { width: 100%; height: 44px; }
+.login-status { font-size: var(--font-control); }
+.login-status:empty { display: none; }
+.login-demo { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-6); padding-top: var(--space-4); border-top: 1px solid var(--color-border); color: var(--color-muted); font-size: var(--font-caption); }
+.login-demo strong { color: var(--color-text); font-weight: 500; }
+.login-merchant { display: flex; align-items: center; justify-content: center; gap: var(--space-2); width: fit-content; margin: var(--space-6) auto 0; padding: var(--space-2); color: var(--color-primary); font-size: var(--font-control); border-radius: var(--radius-control); }
+.login-merchant:hover { color: var(--color-primary-hover); background: var(--color-primary-soft); }
+.login-note { margin-top: var(--space-4); text-align: center; color: var(--color-muted); font-size: var(--font-caption); }
+@media (max-width: 480px) {
+  .login-page { padding: var(--space-6) var(--space-4); }
+  .login-card { padding: var(--space-6); }
+}

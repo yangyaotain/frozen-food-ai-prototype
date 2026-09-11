@@ -1,0 +1,61 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+
+const sandbox = { window: { FrozenApp: {} } };
+for (const name of ['category-catalog', 'price-store', 'category-store']) {
+  vm.runInNewContext(fs.readFileSync(new URL('../assets/js/' + name + '.js', import.meta.url), 'utf8'), sandbox);
+}
+const app = sandbox.window.FrozenApp;
+const prices = app.priceData.createStore();
+const mappings = app.categoryData.createStore(prices);
+assert.equal(app.categoryData.categories, app.priceData.categories);
+assert.equal(mappings.records.length, 39);
+assert.equal(new Set(mappings.records.map(item => item.id)).size, 39);
+assert.equal(mappings.query({ status: 'unmapped' }).length, 3);
+assert.equal(mappings.query({ status: 'mapped', category: 'poultry' }).length, 3);
+assert.equal(mappings.query({ keyword: '  RAW-004  ' })[0].id, 'raw-004');
+assert.equal(mappings.query({ keyword: '鸡杂', status: 'unmapped' }).length, 1);
+assert.equal(mappings.query({ category: 'poultry', keyword: '水产' }).length, 0);
+assert.equal(mappings.query({ keyword: '<script>' }).length, 0);
+const unmapped = mappings.related('raw-004');
+assert.equal(unmapped.category, null);
+assert.equal(unmapped.members.length, 1);
+assert.equal(unmapped.prices.length, 0);
+assert.equal(unmapped.totals.closing, 24);
+const before = JSON.stringify(mappings.records);
+assert.equal(mappings.save('raw-004', { categoryId: 'unknown' }, 1).valid, false);
+assert.equal(mappings.save('raw-004', { categoryId: '' }, 1).valid, false);
+assert.equal(mappings.save('raw-004', { categoryId: 'poultry', note: '字'.repeat(201) }, 1).valid, false);
+assert.equal(mappings.save('missing', { categoryId: 'poultry' }, 1).valid, false);
+assert.equal(JSON.stringify(mappings.records), before);
+const pricesBefore = JSON.stringify(prices.records);
+assert.equal(mappings.save('raw-004', { categoryId: 'poultry', note: '鸡副同义名称' }, 1).valid, true);
+assert.equal(mappings.query({ status: 'unmapped' }).length, 2);
+assert.equal(mappings.related('raw-004').members.length, 4);
+assert.equal(mappings.related('raw-004').prices.length, 8);
+assert.equal(mappings.related('raw-004').totals.inbound, 68);
+assert.equal(mappings.related('raw-004').totals.outbound, 60);
+assert.equal(mappings.related('raw-004').totals.closing, 148);
+assert.equal(mappings.save('raw-004', { categoryId: 'poultry', note: '鸡副同义名称' }, 2).unchanged, true);
+assert.equal(mappings.find('raw-004').history.length, 1);
+assert.equal(mappings.save('raw-004', { categoryId: 'pork' }, 1).valid, false);
+assert.equal(mappings.save('raw-004', { categoryId: 'pork', note: '调整归属演示' }, 2).valid, true);
+assert.equal(mappings.related('raw-001').members.length, 3);
+assert.equal(mappings.related('raw-009').members.length, 4);
+assert.equal(mappings.find('raw-004').history[0].after.categoryId, 'poultry');
+assert.equal(mappings.find('raw-004').history[1].before.categoryId, 'poultry');
+assert.equal(JSON.stringify(prices.records), pricesBefore);
+for (const record of mappings.records) assert.equal(record.opening + record.inbound - record.outbound, record.closing);
+
+// 关联详情每次读取当前采价数据；新增、修改和复核结果不能滞留在旧副本。
+const input = { start: '2026-09-07', category: 'pork', price: '19000', unit: '元/吨', note: '' };
+const added = prices.save(input);
+assert.equal(mappings.related('raw-004').prices[0].price, 19000);
+assert.equal(prices.review(added.record.id, 'reviewed', '数据已核对').valid, true);
+assert.equal(mappings.related('raw-004').prices[0].status, 'reviewed');
+prices.save({ ...input, price: '19500' }, added.record.id);
+assert.equal(mappings.related('raw-004').prices[0].price, 19500);
+assert.equal(mappings.related('raw-004').prices[0].status, 'pending');
+assert.equal(mappings.related('raw-004').prices[0].version, 2);
+console.log('PASS: shared categories, combined queries, unmapped isolation, mapping validation/conflicts, regrouped quantities, history snapshots and live price references. Node data checks only; no browser verification.');

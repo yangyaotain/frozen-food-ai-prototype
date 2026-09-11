@@ -1,0 +1,38 @@
+/* 系统管理复用公共设计令牌，仅补充账号与权限选择布局。 */
+.topbar-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-3); margin-left: auto; }
+.account-menu { position: relative; font-size: var(--font-control); }
+.account-menu > summary { list-style: none; }
+.account-menu > summary::-webkit-details-marker { display: none; }
+.account-avatar { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: var(--color-primary); background: var(--color-primary-soft); flex: none; }
+.account-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; width: 260px; max-width: calc(100vw - 32px); padding: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: 0 8px 24px rgb(15 23 42 / 12%); font-size: var(--font-control); }
+.account-panel p { overflow-wrap: anywhere; margin-bottom: var(--space-2); }
+.account-panel .button { justify-content: flex-start; width: 100%; margin-top: var(--space-2); }
+.permission-picker, .role-picker { padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); min-width: 0; }
+.permission-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3); }
+.permission-toolbar input[type="search"] { flex: 1; min-width: 160px; }
+.permission-tree { max-height: 380px; overflow: auto; }
+.permission-group { padding: var(--space-3) 0; border-top: 1px solid var(--color-border); }
+.permission-group > label { font-weight: 600; }
+.permission-page { margin: var(--space-3) 0 0 var(--space-4); }
+.permission-leaves { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-2) 0 0 var(--space-4); }
+.permission-picker label, .role-picker label { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--font-control); }
+.role-options { display: grid; gap: var(--space-3); max-height: 220px; overflow: auto; margin-top: var(--space-3); }
+.system-table td { white-space: normal; overflow-wrap: anywhere; min-width: 100px; }
+.system-table .table-actions { min-width: 260px; }
+.system-table .row-actions { flex-wrap: wrap; gap: var(--space-1); }
+.system-table--users { min-width: 1320px; }
+.system-table--users th:nth-child(1), .system-table--users td:nth-child(1) { min-width: 140px; }
+.system-table--users th:nth-child(3), .system-table--users td:nth-child(3) { min-width: 120px; }
+.system-table--users th:nth-child(4), .system-table--users td:nth-child(4) { min-width: 190px; }
+.system-table--users th:nth-child(5), .system-table--users td:nth-child(5) { min-width: 240px; }
+.system-table--users th:nth-child(8), .system-table--users td:nth-child(8) { min-width: 150px; }
+.system-permission-summary { display: grid; gap: var(--space-3); }
+.system-permission-summary > div { padding: var(--space-3); background: var(--color-bg); border-radius: var(--radius-control); }
+.system-permission-summary p { overflow-wrap: anywhere; }
+.system-protected { display: inline-block; margin-top: var(--space-1); color: var(--color-muted); font-size: var(--font-caption); }
+.system-session-ended { max-width: 640px; margin: 80px auto; }
+#profile-edit { grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); }
+#profile-edit .tree-select-trigger [data-tree-label] { white-space: nowrap; }
+.app-dialog[data-profile-dialog] { width: min(880px, calc(100vw - 32px)); height: min(560px, calc(100dvh - 48px)); }
+.app-dialog[data-profile-dialog] > .dialog-body { flex: 1; }

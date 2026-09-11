@@ -1,0 +1,25 @@
+/* Reuse the merchant frame, mobile sheets and global typography. */
+.merchant-layout--login { background: var(--color-surface); }
+.mini-login-content { display: flex; padding: var(--space-8) var(--space-6) max(var(--space-6), env(safe-area-inset-bottom)); }
+.mini-login { width: 100%; margin: auto; gap: var(--space-8); }
+.mini-login-brand { text-align: center; display: grid; justify-items: center; gap: var(--space-3); padding-block: var(--space-6); }
+.mini-login-brand .brand-mark { width: 56px; height: 56px; font-size: var(--font-title); border-radius: var(--radius-card); }
+.mini-login-content .mini-login-brand h1 { font-size: var(--font-title); line-height: 1.5; margin: 0; }
+.mini-login-card { display: grid; gap: var(--space-3); min-width: 0; }
+.mini-login-card h2 { font-size: var(--font-section); margin: 0; }
+.mini-login-actions, .mini-login-form { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.mini-login .button, .mini-auth-consent .button { min-height: 48px; white-space: normal; }
+.mini-login-form .form-control { min-height: 48px; min-width: 0; width: 100%; }
+.mini-code-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); }
+.mini-code-row .button { padding-inline: var(--space-2); }
+.mini-login-note { text-align: center; line-height: 1.8; }
+.mini-login-number { display: grid; justify-items: center; gap: var(--space-2); padding-block: var(--space-4); }
+.mini-login-number strong { font-size: var(--font-title); font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mini-login-card .field-error { margin: 0; }
+.mini-auth-consent > .icon { color: var(--color-primary); width: 32px; height: 32px; }
+.mini-auth-consent h3 { font-size: var(--font-section); margin-block: var(--space-3); }
+.mini-logout { width: 100%; margin-top: var(--space-6); color: var(--color-danger); }
+@media (max-width: 350px) {
+  .mini-login-content { padding-inline: var(--space-4); }
+  .mini-code-row { grid-template-columns: minmax(0, 1fr); }
+}

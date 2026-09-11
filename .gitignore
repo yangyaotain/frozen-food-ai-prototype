@@ -1,0 +1,11 @@
+work/
+outputs/
+node_modules/
+.DS_Store
+Thumbs.db
+materials/
+.codex-submit-test/
+.env
+.env.*
+*.pem
+*.key

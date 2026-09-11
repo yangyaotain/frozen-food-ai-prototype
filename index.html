@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · 冻品 AI 行情研判</title>
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/common.css">
+  <link rel="stylesheet" href="assets/css/login.css">
+  <script defer src="assets/js/common.js"></script>
+  <script defer src="assets/js/presentation.js"></script>
+  <script defer src="assets/js/auth.js"></script>
+  <script defer src="assets/js/login.js"></script>
+</head>
+<body class="login-page">
+  <main class="login-content">
+    <header class="login-brand">
+      <div class="brand-mark" aria-hidden="true">丰</div>
+      <p class="eyebrow">杭州五丰 · 业财一体化项目</p>
+      <h1>冻品 AI 行情研判</h1>
+      <p class="login-description">行业资讯、市场量价分析与商户经营参考</p>
+    </header>
+    <section class="panel login-card" aria-labelledby="login-title">
+      <div class="login-heading"><h2 id="login-title">管理端登录</h2><p class="muted">欢迎使用，请输入账号和密码</p></div>
+      <form id="login-form" class="login-form" novalidate>
+        <label class="form-field" for="login-account">
+          <span>账号</span>
+          <span class="input-with-icon"><span data-icon="user"></span><input class="form-control" id="login-account" name="account" value="admin" autocomplete="username" placeholder="请输入账号" maxlength="40" required aria-describedby="account-error"></span>
+          <small class="field-error" id="account-error"></small>
+        </label>
+        <label class="form-field" for="login-password">
+          <span>密码</span>
+          <span class="input-with-icon"><span data-icon="shield"></span><input class="form-control" id="login-password" name="password" value="123456" type="password" autocomplete="current-password" placeholder="请输入密码" maxlength="64" required aria-describedby="password-error"></span>
+          <small class="field-error" id="password-error"></small>
+        </label>
+        <p id="login-error" class="field-error" role="alert"></p>
+        <button class="button button--primary login-submit" type="submit"><span data-icon="login"></span><span id="login-label">登录</span></button>
+        <p id="login-status" class="login-status muted" role="status" aria-live="polite"></p>
+      </form>
+      <noscript><p class="field-error">请启用 JavaScript 后登录。</p></noscript>
+    </section>
+    <a class="login-merchant" href="merchant/index.html" target="_blank" rel="noopener noreferrer"><span data-icon="phone"></span><span>商户小程序端</span><span aria-hidden="true">→</span></a>
+  </main>
+</body>
+</html>

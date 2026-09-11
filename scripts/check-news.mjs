@@ -1,0 +1,104 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const cache = new Map();
+const storage = { getItem: key => cache.get(key) ?? null, setItem: (key, value) => cache.set(key, value) };
+const sandbox = { window: { FrozenApp: {}, localStorage: storage }, URL };
+function load(names, context) { for (const name of names) vm.runInNewContext(fs.readFileSync(new URL('../assets/js/' + name + '.js', import.meta.url), 'utf8'), context); }
+load(['common', 'category-catalog', 'price-store', 'news-data', 'source-store', 'admin-news'], sandbox);
+const app = sandbox.window.FrozenApp, store = app.sourceStore, data = app.newsData;
+assert.equal(store.items.filter(store.eligible).length, 13);
+assert.equal(store.newsPublished().length, 0);
+assert.equal(data.read().length, 0); // 预置核验通过也不自动发布。
+assert.equal(store.publish('missing', 1, 1).valid, false);
+assert.equal(store.publish('info-2', 1, 1).valid, false);
+assert.equal(store.publish('info-9', 1, 1).valid, false);
+assert.equal(store.publish('info-1', 0, 1).valid, false);
+assert.equal(store.publish('info-1', 1, 0).valid, false);
+const item = store.findItem('info-1'), source = store.find(item.sourceId);
+assert.equal(app.newsActions.state(item), '待发布');
+assert.equal(store.publish(item.id, item.version, source.version).valid, true);
+assert.equal(app.newsActions.state(item), '已发布 V1');
+assert.equal(store.publish(item.id, item.version, source.version).valid, false);
+const first = store.newsPublished()[0];
+assert.equal(first.sourcePublishedAt, item.publishedAt);
+assert.equal(first.publication.version, 1);
+assert.equal(first.verification.actor, '复核员');
+assert.equal(data.valid([first]), true);
+assert.equal(data.read().length, 1);
+first.title = 'changed copy';
+assert.notEqual(store.newsPublished()[0].title, first.title);
+const historicalRelease = JSON.stringify(item.history.at(-1));
+const originalContent = item.content;
+assert.equal(store.flag(item.id, item.version, '核对原文时间').valid, true);
+assert.equal(store.newsPublished().length, 0);
+assert.equal(data.read().length, 0);
+assert.equal(app.newsActions.state(item), '暂停展示 · 待重新核验');
+assert.equal(store.publish(item.id, item.version, source.version).valid, false);
+assert.equal(store.verify(item.id, item.version, 'rejected', '依据不足').valid, true);
+assert.equal(store.publish(item.id, item.version, source.version).valid, false);
+assert.equal(store.flag(item.id, item.version, '补充来源依据').valid, true);
+assert.equal(store.verify(item.id, item.version, 'verified', '已核对原文时间及适用范围').valid, true);
+assert.equal(store.newsPublished().length, 0);
+assert.equal(app.newsActions.state(item), '待发布');
+assert.equal(store.publish(item.id, item.version, source.version).valid, true);
+assert.equal(item.publication.publication.version, 2);
+assert.equal(item.publication.verification.actor, '核验员');
+assert.equal(JSON.stringify(item.history.find(log => log.action === '资讯发布')), historicalRelease);
+assert.equal(item.content, originalContent);
+const releaseTwo = JSON.stringify(item.publication);
+assert.equal(store.save({ ...source, scope: '调整后的政策适用范围样例' }, source.id, source.version).valid, true);
+assert.equal(data.read().length, 0);
+assert.equal(item.publication, null);
+assert.equal(item.history.at(-1).before.publication.publication.version, 2);
+assert.equal(JSON.stringify(item.history.at(-1).before.publication), releaseTwo);
+assert.equal(store.confirm(source.id, source.version, '已确认更新后的来源范围').valid, true);
+assert.equal(store.publish(item.id, item.version, source.version).valid, false);
+assert.equal(store.verify(item.id, item.version, 'verified', '已按最新来源逐篇核验').valid, true);
+assert.equal(data.read().length, 0);
+assert.equal(store.publish(item.id, item.version, source.version - 1).valid, false);
+assert.equal(store.publish(item.id, item.version, source.version).valid, true);
+assert.equal(item.publication.publication.version, 3);
+assert.equal(item.publication.source.version, source.version);
+for (const id of ['info-3', 'info-5', 'info-7']) { const row = store.findItem(id); assert.equal(store.publish(id, row.version, store.find(row.sourceId).version).valid, true); }
+const feed = store.newsPublished();
+assert.equal(feed.length, 4);
+assert.equal(data.query(feed, { type: 'market', category: 'seafood', keyword: '水产到货' }).length, 1);
+assert.equal(data.query(feed, { type: 'policy', category: 'poultry', keyword: '冷链政策与标准信息库' }).length, 1);
+assert.equal(data.query(feed, { keyword: 'not-a-title' }).length, 0);
+assert.equal(data.query(feed, { type: 'unknown' }).length, 0);
+const newest = JSON.parse(JSON.stringify(feed[0])); newest.publication.time = '2099-01-01 12:00:00';
+assert.equal(data.query([...feed.slice(1), newest], {})[0].id, newest.id);
+const injected = JSON.parse(JSON.stringify(feed[0]));
+injected.history = ['private']; injected.verification.opinion = 'private'; injected.source.internal = 'private';
+assert.equal(data.write([injected]), true);
+assert.equal(JSON.stringify(data.read()).includes('private'), false);
+const previousCache = cache.get(data.key);
+for (const bad of [null, {}, [null], [{ ...feed[0], status: 'pending' }], [{ ...feed[0], categories: [null] }], [{ ...feed[0], publication: null }], [{ ...feed[0], version: 0 }]]) {
+  assert.equal(data.valid(bad), false); assert.equal(data.write(bad), false);
+}
+assert.equal(cache.get(data.key), previousCache);
+cache.set(data.key, '{bad-json'); assert.equal(data.read().length, 0);
+const merchant = { window: { FrozenApp: {}, localStorage: storage } };
+load(['common', 'category-catalog', 'news-data', 'news-view'], merchant);
+const m = merchant.window.FrozenApp;
+assert.equal(m.sourceStore, undefined);
+for (const html of [m.newsView.card(feed[0]), m.newsView.detail(feed[0])]) {
+  assert.ok(html.includes(m.escape(feed[0].source.name)));
+  assert.ok(html.includes(feed[0].sourcePublishedAt));
+  const stack = [];
+  for (const match of html.matchAll(/<\/?([a-z][\w-]*)\b[^>]*>/gi)) {
+    if (match[0].startsWith('</')) assert.equal(stack.pop(), match[1]);
+    else if (!['br', 'input', 'img', 'hr'].includes(match[1]) && !match[0].endsWith('/>')) stack.push(match[1]);
+  }
+  assert.equal(stack.length, 0);
+}
+assert.ok(m.newsView.detail(feed[0]).includes('发布 V3'));
+assert.equal(m.newsView.detail({ ...feed[0], content: '<script>bad()</script>' }).includes('<script>'), false);
+merchant.window.localStorage = { getItem() { throw Error('denied'); }, setItem() { throw Error('denied'); } };
+assert.equal(m.newsData.read().length, 0); assert.equal(m.newsData.write(feed), false);
+assert.equal(store.newsPublished().length, 4);
+const entry = fs.readFileSync(new URL('../merchant/index.html', import.meta.url), 'utf8');
+for (const forbidden of ['source-store.js', 'admin-sources.js', 'admin-news.js']) assert.equal(entry.includes(forbidden), false);
+for (const required of ['news-data.js', 'news-view.js', 'merchant-news.js']) assert.equal(entry.includes(required), true);
+console.log('PASS: manual publication gate, stale/duplicate rejection, anomaly/source invalidation, recheck without autopublish, release history, public feed/cache, filters, independent merchant rendering, HTML structure and escaping. Node checks only; no browser verification.');
