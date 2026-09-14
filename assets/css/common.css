@@ -350,5 +350,12 @@ select[data-search-enhanced][aria-invalid="true"] + .category-picker summary { b
 .source-article { font-size: var(--font-body); line-height: 1.8; }
 .source-article section + section, .source-article > p + section { margin-top: var(--space-4); }
 .source-article h3 { font-size: var(--font-body); margin: 0 0 var(--space-2); }
+.news-structured { display: grid; gap: var(--space-4); margin: var(--space-3) 0; }
+.news-structured > section > h3, .news-attention > strong { display: block; margin: 0 0 var(--space-2); font-size: var(--font-body); color: var(--color-text); }
+.news-summary { margin: 0; line-height: 1.8; color: var(--color-text); }
+.news-highlights { display: grid; gap: var(--space-2); margin: 0; padding-left: 1.25rem; line-height: 1.75; }
+.news-highlights li::marker { color: var(--color-primary); }
+.news-attention { padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-warning); border-radius: var(--radius-control); background: var(--color-warning-soft); }
+.news-attention p { margin: 0; line-height: 1.75; }
 .source-original { border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: var(--space-3) var(--space-4); }
 .source-original > summary { cursor: pointer; font-size: var(--font-control); }

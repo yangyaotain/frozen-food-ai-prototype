@@ -1,6 +1,8 @@
 (function () {
   'use strict';
   const app = window.FrozenApp, esc = app.presentation ? app.presentation.escape : app.escape, store = app.bulletinStore;
+  const lines = function (value) { return String(value || '').split(/\r?\n/).map(function (item) { return item.trim(); }).filter(Boolean); };
+  function textCopy(value) { return value.title + '\n' + value.summary + '\n本期重点：\n' + (value.highlights || []).join('\n') + '\n' + value.signals; }
   function button(action, icon, label, primary) { return '<button type="button" class="button' + (primary ? ' button--primary' : '') + '" data-action="' + action + '">' + app.icon(icon) + '<span>' + label + '</span></button>'; }
   function status(row) { const item = app.bulletinData.states[row.status]; return '<span class="status-tag status-tag--' + item.style + '">' + item.name + '</span>'; }
   function detail(host, row) {
@@ -12,7 +14,7 @@
     const versions = store.versions(row.id);
     const body = '<p class="dialog-description">已发布版本保持不变。文字编辑记录保留前后内容，数据快照以各版本详情为准。</p><div class="bulletin-versions">' + versions.map(function (version) {
       return '<section class="bulletin-version"><header><strong>V' + version.version + ' · ' + esc(version.title) + '</strong>' + status(version) + '<button type="button" class="button" data-version="' + version.version + '">' + app.icon('report') + '<span>查看版本</span></button></header><ol>' + version.history.map(function (item) {
-        return '<li><strong>' + esc(item.action) + '</strong><p class="field-hint">' + esc(item.actor + ' · ' + item.time) + '</p><p>' + esc(item.opinion) + '</p>' + (item.before ? '<details><summary>文字修改前后</summary><div class="task-compare"><section><h3>修改前</h3><p class="detail-note">' + esc(item.before.title + '\n' + item.before.summary + '\n' + item.before.signals) + '</p></section><section><h3>修改后</h3><p class="detail-note">' + esc(item.after.title + '\n' + item.after.summary + '\n' + item.after.signals) + '</p></section></div></details>' : '') + '</li>';
+        return '<li><strong>' + esc(item.action) + '</strong><p class="field-hint">' + esc(item.actor + ' · ' + item.time) + '</p><p>' + esc(item.opinion) + '</p>' + (item.before ? '<details><summary>文字修改前后</summary><div class="task-compare"><section><h3>修改前</h3><p class="detail-note">' + esc(textCopy(item.before)) + '</p></section><section><h3>修改后</h3><p class="detail-note">' + esc(textCopy(item.after)) + '</p></section></div></details>' : '') + '</li>';
       }).join('') + '</ol></section>';
     }).join('') + '</div>';
     const dialog = app.openDetailPage(host, '版本与过程记录', body, '', true);
@@ -20,12 +22,12 @@
   }
   function edit(host, row, refresh) {
     const limits = app.bulletinData.textLimits(row);
-    const body = '<h2>简报文字</h2><form id="bulletin-workspace-edit" class="task-workspace-form"><label class="form-field"><span>简报标题</span><input class="form-control" name="title" maxlength="100" required value="' + esc(row.title) + '"></label><label class="form-field"><span>市场摘要</span><textarea class="form-control editor-textarea--summary" name="summary" maxlength="' + limits.summary + '" required>' + esc(row.summary) + '</textarea></label><label class="form-field"><span>异常与供需信号</span><textarea class="form-control editor-textarea--body" name="signals" maxlength="' + limits.signals + '" required>' + esc(row.signals) + '</textarea></label><p class="field-error" role="alert"></p></form>';
+    const body = '<h2>简报文字</h2><form id="bulletin-workspace-edit" class="task-workspace-form"><label class="form-field"><span>简报标题</span><input class="form-control" name="title" maxlength="100" required value="' + esc(row.title) + '"></label><label class="form-field"><span>市场摘要</span><textarea class="form-control editor-textarea--summary" name="summary" maxlength="' + limits.summary + '" required>' + esc(row.summary) + '</textarea></label><label class="form-field"><span>本期重点</span><textarea class="form-control editor-textarea--summary" name="highlights" maxlength="720" required>' + esc(row.highlights.join('\n')) + '</textarea><small class="field-hint">每行一条，共 2–4 条；用于小程序首屏和详情重点展示。</small></label><label class="form-field"><span>异常与供需信号</span><textarea class="form-control editor-textarea--body" name="signals" maxlength="' + limits.signals + '" required>' + esc(row.signals) + '</textarea></label><p class="field-error" role="alert"></p></form>';
     const meta = '<dl class="detail-grid"><div><dt>简报类型</dt><dd>' + (row.kind === 'month' ? '月报' : '周报') + '</dd></div><div><dt>数据期间</dt><dd>' + row.start + ' 至 ' + row.end + '</dd></div><div><dt>当前版本 / 状态</dt><dd>V' + row.version + ' · ' + esc(app.bulletinData.states[row.status].name) + '</dd></div><div><dt>品类范围</dt><dd>' + esc(row.snapshot.categories.map(function (category) { return category.name; }).join('、')) + '</dd></div></dl>';
     const workspace = app.openTaskWorkspace(host, { title: '编辑简报 · V' + row.version, mode: 'edit', description: '数据快照、期间与品类保持生成时口径；文字改变后重新待复核。', status: status(row), meta: meta, main: body, aside: '<h2>保存前内容与数据依据</h2><div class="task-reading">' + app.bulletinView.render(row) + '</div>', actions: '<button class="button button--primary" type="submit" form="bulletin-workspace-edit">' + app.icon('check') + '<span>保存</span></button>', onClose: function (message) { if (message) refresh(message); } });
     workspace.element.querySelector('form').addEventListener('submit', function (event) {
       event.preventDefault(); const form = event.currentTarget;
-      try { const result = store.edit(row.id, row.version, { title: form.elements.title.value, summary: form.elements.summary.value, signals: form.elements.signals.value }); workspace.complete('保存完成 · ' + app.bulletinData.states[result.status].name + '。'); }
+      try { const result = store.edit(row.id, row.version, { title: form.elements.title.value, summary: form.elements.summary.value, highlights: lines(form.elements.highlights.value), signals: form.elements.signals.value }); workspace.complete('保存完成 · ' + app.bulletinData.states[result.status].name + '。'); }
       catch (error) { form.querySelector('[role="alert"]').textContent = error.message; }
     });
   }

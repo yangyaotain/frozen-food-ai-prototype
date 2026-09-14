@@ -407,7 +407,7 @@ for (const group of ['bulletins', 'reports']) {
 
 // New automatic results update the active period summary and the currently open records dialog.
 let currentTime = Date.parse('2026-09-10T08:00:00+08:00');
-ua.generationStore = ua.generationSchedule.create({ now: () => currentTime, delay: () => Promise.resolve(), seedHistory: true });
+ua.generationStore = ua.generationSchedule.create({ now: () => currentTime, delay: () => Promise.resolve(), seedHistory: false });
 vm.runInNewContext(read('assets/js/admin-generation.js'), ui.sandbox);
 const liveHost = new Host(); ua.pages['admin:bulletins'](liveHost);
 clickAction(liveHost, 'generation-records');
@@ -415,7 +415,8 @@ let sawRunning = false;
 const stopObserving = ua.generationStore.subscribe(() => { sawRunning ||= liveHost.querySelector('[data-generation-summary]').innerHTML.includes('>执行中</span>'); });
 currentTime = Date.parse('2026-09-14T09:00:00+08:00'); await ua.generationStore.tick();
 stopObserving(); assert.ok(sawRunning, '执行期间同步显示执行中');
-const newest = ua.generationStore.records('bulletins', 'week')[0];
+const newest = ua.generationStore.records('bulletins', 'week').find(record => record.origin !== 'preset-history');
+assert.ok(newest, '应保留本次自动执行的实际记录');
 assert.equal(newest.time, '2026-09-14 09:00:00');
 assert.ok(liveHost.querySelector('[data-generation-summary]').innerHTML.includes('>2026-09-14 09:05</time>'), '待补时间早于下个定期计划时展示待补时间');
 assert.ok(liveHost.querySelector('[data-generation-summary]').innerHTML.includes(newest.result));

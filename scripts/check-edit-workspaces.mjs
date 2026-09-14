@@ -29,21 +29,26 @@ assert.match(news, /openTaskWorkspace\(host, \{ title: '整理资讯展示稿'/)
 assert.match(news, /editor-textarea--article/);
 assert.match(news, /保存并进入待核验/);
 assert.match(news, /<h2>原文留档<\/h2>/);
+for (const field of ['name="summary"', 'name="highlights"', 'name="content"', 'name="attention"']) assert.ok(news.includes(field), 'missing structured news field ' + field);
+assert.match(news, /2–4条/);
 
 assert.match(bulletins, /openTaskWorkspace\(host, \{ title: '编辑简报/);
 assert.match(bulletins, /openTaskWorkspace\(host, \{ title: '复核简报/);
 assert.match(bulletins, /待复核简报全文/);
+assert.ok(bulletins.includes('name="highlights"'), 'market bulletin editor must maintain published highlights');
 assert.doesNotMatch(bulletins, /function edit\([\s\S]*?function review[\s\S]*?openDialog\(host, '编辑简报/);
 
 assert.match(reports, /openTaskWorkspace\(host, \{ title: '编辑报告与建议/);
 assert.match(reports, /openTaskWorkspace\(host, \{ title: '报告及建议共同复核/);
 assert.match(reports, /editor-textarea--advice/);
 assert.match(reports, /共同保存/);
+for (const field of ['name="highlights"', 'name="adviceSummary"', 'name="adviceHighlights"']) assert.ok(reports.includes(field), 'missing report/advice summary field ' + field);
 
 assert.match(sources, /openTaskWorkspace\(host, \{ title: '信息详情与核验'/);
 assert.match(sources, /task-compare/);
 assert.match(sources, /data-workspace-flag/);
 assert.match(sources, /workspace\.complete\('核验结果已保存/);
+assert.match(sources, /摘要、核心要点、发布正文、关注事项/);
 
 for (const file of [news, sources, bulletins, reports]) {
   assert.match(file, /openDialog\(/, 'short confirmations or read-only dialogs must remain available');

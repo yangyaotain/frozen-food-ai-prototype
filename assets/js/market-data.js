@@ -8,7 +8,7 @@
     if (record.status !== 'published' || !record.review || !record.publication || (app.publicationPolicy && !app.publicationPolicy.allowed(record))) return null;
     const snapshot = record.snapshot;
     return clone({ id: record.id, version: record.version, status: 'published', title: record.title,
-      summary: record.summary, signals: record.signals, kind: record.kind, start: record.start, end: record.end,
+      summary: record.summary, highlights: record.highlights.slice(), signals: record.signals, kind: record.kind, start: record.start, end: record.end,
       generatedAt: record.generatedAt, review: { actor: record.review.actor, time: record.review.time },
       publication: { actor: record.publication.actor, time: record.publication.time },
       snapshot: { safety: snapshot.safety, method: snapshot.method, categories: snapshot.categories.map(function (category) {
@@ -21,7 +21,8 @@
     return Array.isArray(records) && records.every(function (row) {
       return row && typeof row.id === 'string' && Number.isInteger(row.version) && row.version > 0 &&
         row.status === 'published' && row.review && row.publication && row.snapshot && (!app.publicationPolicy || app.publicationPolicy.allowed(row)) &&
-        ['week', 'month'].includes(row.kind) && typeof row.title === 'string' &&
+        ['week', 'month'].includes(row.kind) && typeof row.title === 'string' && typeof row.summary === 'string' && typeof row.signals === 'string' &&
+        Array.isArray(row.highlights) && row.highlights.length >= 2 && row.highlights.length <= 4 && row.highlights.every(function (item) { return typeof item === 'string' && item.length > 0; }) &&
         /^\d{4}-\d{2}-\d{2}$/.test(row.start) && /^\d{4}-\d{2}-\d{2}$/.test(row.end) &&
         Array.isArray(row.snapshot.references) && Array.isArray(row.snapshot.categories) && row.snapshot.categories.length > 0 &&
         row.snapshot.categories.every(function (category) {

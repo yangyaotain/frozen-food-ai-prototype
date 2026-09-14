@@ -42,7 +42,8 @@
   }
   for (const [kind, date, state] of [
     ['week', '2026-08-17', 'revised'], ['week', '2026-08-10', 'revision'], ['week', '2026-08-03', 'approved'],
-    ['month', '2026-07', 'pending'], ['month', '2026-06', 'revision'], ['month', '2026-05', 'published'], ['month', '2026-04', 'approved']
+    ['week', '2026-07-27', 'published'],
+    ['month', '2026-07', 'pending'], ['month', '2026-06', 'revision'], ['month', '2026-05', 'published'], ['month', '2026-04', 'approved'], ['month', '2026-03', 'published']
   ]) attempt('行情' + date, () => bulletin(kind, date, state));
   for (const merchant of app.reportData.merchants) {
     attempt(merchant.name + '经营周报', () => report(merchant.id, 'week', '2026-08-17', 'published'));
@@ -50,7 +51,10 @@
   }
   for (const [merchant, kind, date, state] of [
     ['demo-a', 'week', '2026-08-24', 'revised'], ['demo-a', 'week', '2026-08-10', 'approved'], ['demo-b', 'week', '2026-08-03', 'revision'],
-    ['demo-a', 'month', '2026-04', 'approved'], ['demo-b', 'month', '2026-03', 'revision']
+    ['demo-a', 'month', '2026-04', 'approved'], ['demo-b', 'month', '2026-03', 'revision'],
+    ['demo-a', 'month', '2026-02', 'published'],
+    ['demo-b', 'week', '2026-07-27', 'published'], ['demo-b', 'month', '2026-02', 'published'],
+    ['demo-c', 'week', '2026-07-27', 'published'], ['demo-c', 'month', '2026-02', 'published']
   ]) attempt('经营' + merchant + date, () => report(merchant, kind, date, state));
 
   // New articles use the existing verification/publication workflow and leave existing source evidence unchanged.
@@ -71,11 +75,42 @@
       publishedAt, validThrough,
       status: 'pending', version: 1, verifiedSourceVersion: null, publication: null, releaseVersion: 0,
       abnormal: '', issueType: '', resolution: '', history: [], signal: null });
-    row.content = row.displayContent = ({
-      policy: '本次资料更新适用于2026年9月1日起形成的冷链交接记录。收货、库内移交和出库交付应分别记录批次、商品名称、产地、净重及交接时间；发生补录或重量调整时，同时留存原记录和调整原因。',
-      industry: state === 'paused' ? '来源将原“按自然周统计交付周期”调整为“按合同履约周期统计”，历史文章中的周度比较口径不再适用。当前内容暂停展示，待补充新旧口径差异及受影响期间后重新核验。' : '9月初餐饮渠道备货由集中提货转为分批交付，周内交接次数增加，但净重总量未同步增长。观察周转变化时应结合完整周出库和期末库存，不能把交付次数直接解释为需求增加。',
-      market: state === 'rejected' ? '来源摘要记录两批水产到货，但只列示“860”和“540”两个数值，未注明单位、毛净重口径及批次对应关系。补齐原始交接记录前，不纳入到货量和库存变化判断。' : '2026年8月31日至9月6日，水产到货保持分批入库，周末库存较前周增加。对比入库、出库与期末库存时统一采用净重和周日截止口径；净入库变化只反映流量关系，不单独推断后续价格。'
-    })[type];
+    const copies = {
+      policy: {
+        summary: '本次资料更新明确了冷链交接记录的留存范围，收货、库内移交和出库交付均需按批次记录商品、产地、净重与交接时间。',
+        highlights: ['2026年9月1日起形成的交接记录按本次资料范围整理。', '补录或重量调整需同时保留原记录、调整内容和原因。', '商品原始名称与分析品类分别留存，不用简称覆盖产地信息。'],
+        content: '主要要求\n收货环节记录到货批次、原始商品名称、国产或进口属性、净重和交接时间；库内移交与出库交付沿用同一批次标识，确保前后记录可以对应。\n\n适用范围\n本次整理适用于2026年9月1日起形成的鸡副冷链交接资料。历史记录继续按原留档版本保存，新增补录不得覆盖原始重量和交接时间。\n\n执行提示\n发生退货、补录或重量调整时，应注明调整人、调整时间与原因。同一批次多次流转按实际环节留痕，不重复计为新增到货。',
+        attention: '本文是对来源资料的业务整理，具体商品和批次仍需结合现行监管要求及企业制度核对，不替代正式政策文件。'
+      },
+      industry: state === 'paused' ? {
+        summary: '来源将交付周期从自然周口径调整为合同履约周期，既有周度比较已不再适用，当前内容暂停展示并等待重新核验。',
+        highlights: ['新口径按合同约定的履约起止时间统计。', '历史自然周数据不能直接与新口径形成趋势比较。'],
+        content: '口径变化\n原资料以周一至周日归集交付记录，新版本改为按合同履约周期统计。同一自然周可能同时包含多个合同周期，周内次数与履约完成量不再一一对应。\n\n口径核对范围\n需要补充新旧口径的生效日期、受影响文章和可比期间，并重新整理展示稿。完成来源核对前，历史结论仅保留在版本记录中。',
+        attention: '当前资料尚未完成新旧口径衔接，不用于解释渠道需求、履约效率或库存变化，也不向小程序继续展示。'
+      } : {
+        summary: '9月初餐饮渠道备货由集中提货转为分批交付，周内交接次数增加，但净重总量没有同步增长。',
+        highlights: ['交接次数增加主要来自提货批次拆分，不等于采购需求扩大。', '判断周转变化需同时核对完整周出库和周末库存。', '市场渠道节奏与单户订单结构应分别观察。'],
+        content: '事件概况\n餐饮渠道在9月初将部分集中提货拆分为多次交付，周内交接节点增加。来源记录显示，批次拆分后交付总净重保持平稳，变化主要体现在时间分布。\n\n行业影响\n分批提货可能提高短期库内操作频次，也会改变周内库存曲线。比较渠道备货时应统一周一至周日范围，并区分交接次数、交付净重和实际出库量。\n\n观察范围\n本条聚焦鸡副餐饮渠道的交接节奏，不包含客户数量、订单金额和履约成本，不据此判断整体需求增长。',
+        attention: '渠道节奏只作为市场背景，商户仍需结合本户订单、库存和交付安排判断，不能把交接次数直接作为采购依据。'
+      },
+      market: state === 'rejected' ? {
+        summary: '来源摘要列出两批水产到货数值，但没有标明重量单位、毛净重口径和批次对应关系，当前无法形成有效供需结论。',
+        highlights: ['“860”和“540”两个数值缺少单位。', '批次、日期与毛净重范围均未完成对应。'],
+        content: '缺失信息\n现有摘要没有说明数值单位，也未提供包装规格、交接单或实际入库日期。两个数值可能来自不同批次或不同统计范围，不能直接相加。\n\n处理要求\n需要补充原始交接记录，统一净重口径并确认统计截止日。依据补齐前，本条保留为核验不通过记录。',
+        attention: '当前信息不纳入水产到货量、库存变化和价格判断，也不会进入小程序已发布资讯。'
+      } : {
+        summary: '2026年8月31日至9月6日，水产保持分批入库，周末库存较前周增加；流量和库存变化需按统一净重与周日截止口径阅读。',
+        highlights: ['到货延续分批入库，周内没有出现单日集中入库。', '期末库存较前周增加，需结合同期出库变化判断。', '净入库反映流量关系，不单独代表后续价格方向。'],
+        content: '统计范围\n本期覆盖2026年8月31日至9月6日，按已建立映射的水产商品名称归并，国产与进口属性分别留存。入库和出库采用整周累计净重，库存取9月6日周日余额。\n\n供需变化\n到货继续以分批方式进入市场，周内入库节奏相对均衡；期末库存较前周增加。库存变化同时受到本期入库、出库和盘点调整影响，不能只依据到货批次判断。\n\n口径说明\n来源观察与平台汇总分别留存。平台周均采价不是任一商户的成交价格，市场库存也不用于反推单户库存。',
+        attention: '后续应继续观察连续周出库能否消化新增库存，并结合相同品类采价核对；本条不作价格预测。'
+      }
+    };
+    const copyText = copies[type];
+    row.content = copyText.summary + '\n\n' + copyText.content;
+    row.displaySummary = copyText.summary;
+    row.displayHighlights = copyText.highlights;
+    row.displayContent = copyText.content;
+    row.displayAttention = copyText.attention;
     row.context = '按本条完整周期间及来源适用品类核对，不将市场汇总直接用于本户采购决策。';
     delete row.platformFacts;
     row.history.push({ action: '新增资讯', actor: '沈佳宁', at: row.publishedAt, opinion: '已登记原始出处、期间和展示稿，等待逐篇核验。', before: null, after: { ...clone(row), history: undefined } });
@@ -101,6 +136,27 @@
     }
   }
   [['policy', 'published'], ['industry', 'published'], ['market', 'published'], ['industry', 'paused'], ['market', 'rejected']].forEach(([type, state], i) => attempt('资讯' + type + state, () => news(type, state, i)));
+
+  // Expand the merchant feed with reviewed articles that already exist in the management workflow.
+  function publishReadyNews(id, index) {
+    const store = app.sourceStore, row = store.findItem(id);
+    if (!row || row.publication || !store.eligible(row)) return;
+    const source = store.find(row.sourceId), date = ['2026-08-26', '2026-08-27', '2026-08-28', '2026-08-29', '2026-08-31', '2026-09-01'][index];
+    const state = clone(row); delete state.history;
+    row.history.push({ action: '核验通过', actor: '周明远', at: date + ' 14:10:00', opinion: '已核对来源地址、统计期间、内容摘要、核心要点、展示正文和适用品类。', sourceVersion: source.version, before: state, after: clone(state) });
+    valid(store.publish(id, row.version, source.version));
+    const event = row.history.slice().reverse().find(history => history.action === '资讯发布');
+    Object.assign(row.publication.verification, { actor: '周明远', time: date + ' 14:10:00' });
+    Object.assign(row.publication.publication, { actor: '徐悦', time: date + ' 16:30:00' });
+    if (event) {
+      event.actor = '徐悦'; event.at = row.publication.publication.time;
+      if (event.after && event.after.publication) {
+        Object.assign(event.after.publication.verification, row.publication.verification);
+        Object.assign(event.after.publication.publication, row.publication.publication);
+      }
+    }
+  }
+  ['info-1', 'info-3', 'info-5', 'info-cat-prepared', 'info-cat-beef', 'info-7'].forEach((id, i) => attempt('发布补充资讯' + id, () => publishReadyNews(id, i)));
 
   // Collection history is stored on its source, so the existing record dialog and trace share one history.
   const confirmed = app.sourceStore.sources.filter(s => s.status === 'confirmed');

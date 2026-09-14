@@ -21,7 +21,18 @@ for (const merchantId of ['demo-a', 'demo-b', 'demo-c']) {
 
 assert.ok(actual.public.market.every(record => record.status === 'published'));
 assert.ok(actual.public.news.every(record => record.status === 'published'));
+assert.equal(actual.public.market.length, 5);
+assert.deepEqual(Object.fromEntries(['week', 'month'].map(kind => [kind, actual.public.market.filter(record => record.kind === kind).length])), { week: 3, month: 2 });
+assert.ok(actual.public.market.every(record => record.highlights.length >= 2 && record.highlights.length <= 4));
+assert.equal(actual.public.news.length, 9);
+assert.deepEqual(Object.fromEntries(['policy', 'industry', 'market'].map(type => [type, actual.public.news.filter(record => record.type === type).length])), { policy: 2, industry: 3, market: 4 });
+assert.ok(actual.public.news.every(record => record.summary.length >= 20 && record.highlights.length >= 2 && record.highlights.length <= 4 && record.attention.length >= 20));
 assert.ok(actual.public.market.every(record => !record.summary.includes('价格波动关注')));
+for (const merchantId of ['demo-a', 'demo-b', 'demo-c']) {
+  assert.equal(actual[merchantId].length, 4);
+  assert.deepEqual(Object.fromEntries(['week', 'month'].map(kind => [kind, actual[merchantId].filter(record => record.kind === kind).length])), { week: 2, month: 2 });
+  assert.ok(actual[merchantId].every(record => record.highlights.length >= 2 && record.highlights.length <= 4 && record.adviceSummary.length >= 20 && record.adviceHighlights.length >= 2 && record.adviceHighlights.length <= 4));
+}
 assert.ok(actual.public.news.every(record => record.verification.actor === '周明远' && record.publication.actor === '徐悦'));
 assert.ok(Object.values(actual).flatMap(value => Array.isArray(value) ? value : []).filter(record => record.review).every(record => record.review.actor !== '复核员' && record.publication.actor !== '发布员'));
 

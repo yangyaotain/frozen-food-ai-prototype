@@ -81,6 +81,15 @@
       return { price: categoryId && priceTotal != null ? priceTotal / list.length : null, inbound: sum('inbound'), outbound: sum('outbound'), closing: list[list.length - 1].closing };
     }
     function query(filters) {
+      // Calendar queries are for the analysis page; legacy rolling periods remain for saved reports.
+      if (filters.kind === 'month') return monthly(filters);
+      if (filters.kind === 'week') {
+        const result = query({ end: filters.date, count: 1, category: filters.category });
+        if (result.valid) result.kind = 'week';
+        else result.message = '请选择有效的分析周和品类，支持 1901–2099 年。';
+        return result;
+      }
+      if (filters.kind) return { valid: false, message: '请选择周分析或月分析。' };
       const count = Number(filters.count);
       const categoryId = filters.category || '';
       if (!validMonday(filters.end) || ![1, 4, 8].includes(count) || (categoryId && !categories.some(function (item) { return item.id === categoryId; }))) return { valid: false, message: '请选择有效的截至周（周一）、分析范围和品类。支持 1901–2099 年。' };
@@ -127,6 +136,84 @@
         result.quality = series.flatMap(function (r) { return r.issues.concat(r.complete ? [] : [{ level: 'block', text: r.week + '：数量缺失或异常，不采用该周数量。' }]); }).concat(app.analysisInsights.quality([], series.flatMap(function (r) { return r.prices; }), result.unmapped));
         result.seasonal = categoryId ? app.analysisInsights.seasonal({ weekly: weekly }, filters.end, categoryId) : { rows: [], text: '不同品类分别判断季节变化，请选择具体品类查看历史年度对照。' };
         result.findings = app.analysisInsights.findings(result);
+      }
+      return result;
+    }
+    function monthly(filters) {
+      const categoryId = filters.category || '', month = filters.date;
+      if (!/^(19\d{2}|20\d{2})-(0[1-9]|1[0-2])$/.test(month) || month < '1901-01' || (categoryId && !categories.some(function (c) { return c.id === categoryId; }))) return { valid: false, message: '请选择有效的分析月份和品类，支持 1901–2099 年。' };
+      const periods = app.periodInsights, range = periods.range(month, 0), cache = new Map();
+      const analysis = { weekly: function (week, id) {
+        const key = week + ':' + id;
+        if (!cache.has(key)) cache.set(key, weekly(week, id));
+        return cache.get(key);
+      } };
+      const selected = categoryId ? categories.filter(function (c) { return c.id === categoryId; }) : categories;
+      function collect(period) {
+        const value = periods.collect(analysis, period, categoryId);
+        if (categoryId) return value;
+          // Sum category-level month fragments; do not synthesize a separate market allocation.
+        const parts = selected.map(function (c) { return { category: c, data: periods.collect(analysis, period, c.id) }; });
+        metrics.forEach(function (key) {
+          value.totals[key] = key === 'price' || parts.some(function (p) { return p.data.totals[key] == null; }) ? null : Math.round(parts.reduce(function (sum, p) { return sum + p.data.totals[key]; }, 0) * 100) / 100;
+        });
+        value.missing = parts.flatMap(function (p) { return p.data.missing.filter(function (text) { return !text.includes('采价'); }).map(function (text) { return p.category.name + '：' + text; }); });
+        return value;
+      }
+      const current = collect(range);
+      const comparison = { previous: collect(periods.range(month, -1)), year: collect(periods.range(month, -12)) };
+      comparison.changes = Object.fromEntries(['previous', 'year'].map(function (key) {
+        return [key, Object.fromEntries(metrics.map(function (metric) { return [metric, compare(current.totals[metric], comparison[key].totals[metric])]; }))];
+      }));
+      const series = current.evidence.map(function (evidence) {
+        const original = analysis.weekly(evidence.week, categoryId);
+        const start = evidence.week < range.start ? range.start : evidence.week;
+        const end = original.end > range.end ? range.end : original.end;
+        const part = collect({ start: start, end: end });
+        return Object.assign({}, original, part.totals, { start: start, end: end, days: part.days, originalEnd: original.end });
+      });
+      const sourceItems = sourceStore.items.filter(function (item) {
+        const date = item.publishedAt.slice(0, 10);
+        return date >= range.start && date <= range.end && (!categoryId || item.categories.includes(categoryId));
+      });
+      const result = { valid: true, kind: 'month', start: range.start, end: range.end, categoryId: categoryId,
+        totals: current.totals, previousTotals: comparison.previous.totals, yearTotals: comparison.year.totals,
+        previousStart: comparison.previous.start, previousEnd: comparison.previous.end, yearStart: comparison.year.start, yearEnd: comparison.year.end,
+        comparisons: Object.fromEntries(metrics.map(function (key) { return [key, { previous: comparison.changes.previous[key], year: comparison.changes.year[key] }]; })),
+        series: series, priceSeries: selected.map(function (c) { return { id: c.id, name: c.name, values: series.map(function (row) { return periods.collect(analysis, { start: row.start, end: row.end }, c.id).totals.price; }) }; }),
+        references: sourceItems.filter(function (item) { return sourceStore.eligible(item); }),
+        unmapped: categoryStore.records.filter(function (item) { return !item.categoryId; }).length,
+        anomalies: [], quality: [], generatedAt: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' }) };
+      result.excludedReferences = sourceItems.length - result.references.length;
+      if (!categoryId) result.categorySummary = selected.map(function (c) {
+        const value = periods.collect(analysis, range, c.id), changes = periods.month(analysis, month, c.id, value.totals);
+        return { id: c.id, name: c.name, group: c.group, totals: value.totals, priceChange: changes.changes.previous.price, priceYear: changes.changes.year.price };
+      });
+      // Weekly anomaly thresholds still apply to complete source weeks, not unequal month fragments.
+      series.forEach(function (row) {
+        selected.forEach(function (c) {
+          const value = analysis.weekly(row.week, c.id), prior = analysis.weekly(after(row.week, -7), c.id);
+          const change = compare(value.price, prior.price);
+          if (change.value != null && Math.abs(change.value) >= 5) result.anomalies.push({ week: row.week, category: c.name, text: '周均价较上周' + (change.value >= 0 ? '上升 ' : '下降 ') + Math.abs(change.value).toFixed(2) + '%，达到 5% 关注阈值。' });
+        });
+        if (app.analysisInsights) {
+          const original = analysis.weekly(row.week, categoryId), base = analysis.weekly(after(row.week, -7), categoryId);
+          ['inbound', 'outbound', 'closing'].forEach(function (key) {
+            const change = compare(original[key], base[key]);
+            if (change.value != null && Math.abs(change.value) >= 20) result.anomalies.push({ week: row.week, category: categoryId ? selected[0].name : '全部品类', text: ({ inbound: '入库量', outbound: '出库量', closing: '库存量' })[key] + '周环比' + change.value.toFixed(2) + '%，达到20%关注条件；本期' + original[key].toFixed(2) + '吨、上周' + base[key].toFixed(2) + '吨。' });
+          });
+          result.quality.push(...original.issues, ...app.analysisInsights.quality([], original.prices, result.unmapped));
+        }
+      });
+      [current, comparison.previous, comparison.year].forEach(function (value, index) {
+        value.missing.filter(function (message) { return categoryId || !message.includes('采价'); }).forEach(function (message) {
+          result.quality.push({ level: index ? 'exclude' : 'block', text: ['本月', '上月', '上年同月'][index] + '：' + message });
+        });
+      });
+      result.quality = result.quality.filter(function (item, index, list) { return list.findIndex(function (other) { return other.text === item.text; }) === index; });
+      if (app.analysisInsights) {
+        result.seasonal = app.analysisInsights.seasonal(analysis, range.end, categoryId, true);
+        result.findings = app.analysisInsights.findings(result) + '\n月累计受自然月天数影响，不将数量差异单独解释为需求变化。';
       }
       return result;
     }

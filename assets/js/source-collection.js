@@ -104,7 +104,7 @@
           const target = item || { id: 'collected-' + source.id + '-' + (++serial), sourceId: source.id, version: 0, releaseVersion: 0, history: [] };
           Object.assign(target, { externalId: articleId, infoUrl: url, title: raw.title, content: raw.content, publishedAt: raw.publishedAt,
             sourceSnapshot: snapshot(source), categories: cat.slice(), type: item ? item.type : source.type,
-            displayTitle: raw.title, displayContent: raw.content, validThrough: raw.validThrough || '',
+            displayTitle: raw.title, displaySummary: '', displayHighlights: [], displayContent: raw.content, displayAttention: '', validThrough: raw.validThrough || '',
             obtainedAt: stamp(requestedAt), collectionBatchId: batch.id, abnormal: item ? '来源原文已更新，需重新核验' : '',
             issueType: '', treatment: 'corrected', resolution: '', signal: null, context: '', platformFacts: null,
             status: 'pending', verifiedSourceVersion: null, publication: null, version: target.version + 1 });

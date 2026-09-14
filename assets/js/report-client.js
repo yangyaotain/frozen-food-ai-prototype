@@ -10,7 +10,8 @@
       const s = r && r.snapshot;
       return r && r.merchant && r.merchant.id === merchantId && typeof r.merchant.name === 'string' && r.status === 'published' && (!app.publicationPolicy || app.publicationPolicy.allowed(r)) &&
         typeof r.id === 'string' && Number.isInteger(r.version) && r.version > 0 && (r.kind === 'month' ? r.start.endsWith('-01') && new Date(Date.parse(r.end) + 86400000).toISOString().slice(8, 10) === '01' && r.start.slice(0, 7) === r.end.slice(0, 7) && r.days === (Date.parse(r.end) - Date.parse(r.start)) / 86400000 + 1 : r.kind === 'week' ? r.count === 1 && r.days === 7 && (Date.parse(r.end) - Date.parse(r.start)) / 86400000 === 6 && new Date(r.start).getUTCDay() === 1 : [1, 4, 8].includes(r.count)) &&
-        ['title', 'summary', 'signals', 'advice', 'generatedAt', 'start', 'end'].every(function (key) { return typeof r[key] === 'string'; }) &&
+        ['title', 'summary', 'signals', 'adviceSummary', 'advice', 'generatedAt', 'start', 'end'].every(function (key) { return typeof r[key] === 'string'; }) &&
+        ['highlights', 'adviceHighlights'].every(function (key) { return Array.isArray(r[key]) && r[key].length >= 2 && r[key].length <= 4 && r[key].every(function (item) { return typeof item === 'string' && item.length > 0; }); }) &&
         /^\d{4}-\d{2}-\d{2}$/.test(r.start) && /^\d{4}-\d{2}-\d{2}$/.test(r.end) && r.review && r.publication &&
         typeof r.review.actor === 'string' && typeof r.review.time === 'string' && typeof r.publication.actor === 'string' && typeof r.publication.time === 'string' &&
         s && s.totals && s.totals.turnover && ['opening', 'inbound', 'outbound', 'closing'].every(function (k) { return Number.isFinite(s.totals[k]); }) &&
@@ -34,7 +35,7 @@
       bulletins: s.bulletins.map(app.marketData.project)
     });
     return clone({ id: r.id, merchant: { id: r.merchant.id, name: r.merchant.name }, version: r.version, status: 'published',
-      title: r.title, summary: r.summary, signals: r.signals, advice: r.advice, start: r.start, end: r.end, count: r.count, kind: r.kind, days: r.days,
+      title: r.title, summary: r.summary, highlights: r.highlights, signals: r.signals, adviceSummary: r.adviceSummary, adviceHighlights: r.adviceHighlights, advice: r.advice, start: r.start, end: r.end, count: r.count, kind: r.kind, days: r.days,
       generatedAt: r.generatedAt, snapshot: snapshot, review: { actor: r.review.actor, time: r.review.time }, publication: { actor: r.publication.actor, time: r.publication.time } });
   }
   function createStore(merchantId, storage) {

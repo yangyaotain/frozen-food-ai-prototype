@@ -23,6 +23,31 @@
   }
   const round = function (number) { return Math.round((number + Number.EPSILON) * 100) / 100; };
   function textLimits(row) { const count = row.snapshot.categories.length; return { title: 100, summary: Math.max(3000, count * 400), signals: Math.max(4000, count * 1600) }; }
+  function highlightsOf(row) {
+    const categories = row.snapshot.categories.slice();
+    const watched = categories.filter(function (c) { return c.anomalies.length; });
+    const ranked = categories.slice().sort(function (a, b) { return Math.abs(b.totals.inbound - b.totals.outbound) - Math.abs(a.totals.inbound - a.totals.outbound); });
+    const highlights = [];
+    if (watched.length) highlights.push('量价波动重点关注' + watched.slice(0, 4).map(function (c) { return c.name; }).join('、') + '，具体变化及比较基期见品类明细。');
+    else highlights.push('有基期的量价指标未触发关注条件，仍需结合连续期间观察库存变化。');
+    if (ranked.length) {
+      const c = ranked[0], net = round(c.totals.inbound - c.totals.outbound);
+      highlights.push(c.name + '本期净入库' + net.toFixed(2) + '吨，反映库存流量关系，不单独代表需求或价格方向。');
+    }
+    const comparison = categories.find(function (c) { return row.kind === 'month' && c.monthly && c.monthly.changes && c.monthly.changes.previous.price.value != null; });
+    if (comparison) {
+      const change = comparison.monthly.changes.previous.price.value;
+      highlights.push(comparison.name + '月均价较上月' + (change >= 0 ? '上升' : '下降') + Math.abs(change).toFixed(2) + '%，需结合相同规格及库存流量核对。');
+    } else if (row.snapshot.references.length) highlights.push('本期引用' + row.snapshot.references.length + '条已核验资讯，行业背景与平台量价数据分别留存。');
+    else highlights.push('本期没有匹配的已核验资讯，不延伸形成外部供需结论。');
+    return highlights.slice(0, 4);
+  }
+  function validHighlights(value) { return Array.isArray(value) && value.length >= 2 && value.length <= 4 && value.every(function (item) { return typeof item === 'string' && item.trim() && item.trim().length <= 180; }); }
+  function ensureContent(row) {
+    if (!validHighlights(row.highlights)) row.highlights = highlightsOf(row);
+    else row.highlights = row.highlights.map(function (item) { return item.trim(); });
+    return row;
+  }
   function createStore(analysis, prices, mappings, sources, options) {
     options = options || {};
     let records = [];
@@ -128,6 +153,7 @@
         row.signals += '\n\n资讯与量价核对\n' + data.categories.map(function (c) { const comparison = c.monthly; const base = comparison ? comparison.previous.totals : analysis.query({ end: range.start, count: 1, category: c.id }).previousTotals; return c.name + '：' + app.periodInsights.background(data.references, c.id, c.totals, base, range.start, range.end); }).join('\n');
         if (input.kind === 'month') row.signals += '\n\n完整月度对照\n' + data.categories.map(function (c) { return c.name + '：' + ['price', 'inbound', 'outbound', 'closing'].map(function (k) { const change = c.monthly.changes.previous[k], year = c.monthly.changes.year[k]; return ({price:'均价',inbound:'入库',outbound:'出库',closing:'月末库存'})[k] + '环比' + (change.value == null ? change.reason : change.value.toFixed(2) + '%') + '、同比' + (year.value == null ? year.reason : year.value.toFixed(2) + '%'); }).join('；') + '。完整基期及绝对变化量见对照表；月累计受天数影响，不直接推导需求。'; }).join('\n');
       }
+      row.highlights = highlightsOf(row);
       if (scheduled) row.generation = clone(scheduled);
       event(row, scheduled ? '定期自动生成' : previous ? '按最新数据重新生成' : '生成', scheduled ? '计划时间：' + scheduled.scheduledAt + '；生成配置 V' + scheduled.configRevision + '。按当前已复核数据保存快照，等待人工复核。' : previous ? '从 V' + previous.version + ' 创建同期间新数据版本；旧版完整保留，新版重新复核发布。' : '按当前已复核数据保存快照，等待人工复核。', scheduled ? '系统' : undefined);
       records.push(row); persist(); return clone(row);
@@ -147,13 +173,17 @@
       const row = writable(id, version);
       const fields = Object.entries(textLimits(row));
       fields.forEach(function (field) { if (typeof input[field[0]] !== 'string' || !input[field[0]].trim() || input[field[0]].trim().length > field[1]) throw new Error(({ title: '标题', summary: '摘要', signals: '信号' })[field[0]] + '为必填，最多 ' + field[1] + ' 字。'); });
-      if (fields.every(function (field) { return row[field[0]] === input[field[0]].trim(); })) return clone(row);
-      const before = { title: row.title, summary: row.summary, signals: row.signals };
+      const nextHighlights = input.highlights == null ? row.highlights : input.highlights;
+      if (!validHighlights(nextHighlights)) throw new Error('本期重点需填写 2–4 条，每条最多 180 字。');
+      const cleanHighlights = nextHighlights.map(function (item) { return item.trim(); });
+      if (fields.every(function (field) { return row[field[0]] === input[field[0]].trim(); }) && JSON.stringify(row.highlights) === JSON.stringify(cleanHighlights)) return clone(row);
+      const before = { title: row.title, summary: row.summary, highlights: row.highlights.slice(), signals: row.signals };
       fields.forEach(function (field) { row[field[0]] = input[field[0]].trim(); });
+      row.highlights = cleanHighlights;
       row.status = 'pending'; row.review = null;
       event(row, '编辑保存', '内容变化后重新待复核；数据快照保持不变。');
       row.history[row.history.length - 1].before = before;
-      row.history[row.history.length - 1].after = { title: row.title, summary: row.summary, signals: row.signals };
+      row.history[row.history.length - 1].after = { title: row.title, summary: row.summary, highlights: row.highlights.slice(), signals: row.signals };
       persist(); return clone(row);
     }
     function review(id, version, decision, opinion) {
@@ -204,7 +234,7 @@
       try {
         const saved = JSON.parse(options.storage.getItem(storageKey));
         if (saved && saved.schema === 1 && Array.isArray(saved.records) && saved.records.length && saved.records.every(function (r) { return r.id && states[r.status] && r.snapshot && r.snapshot.provenance && Array.isArray(r.history) && Number.isInteger(r.version); })) {
-          records = saved.records; restored = true;
+          records = saved.records.map(ensureContent); restored = true;
         }
       } catch (_) { storageAvailable = false; }
     }

@@ -24,6 +24,7 @@ const first = store.newsPublished()[0];
 assert.equal(first.sourcePublishedAt, item.publishedAt);
 assert.equal(first.publication.version, 1);
 assert.equal(first.verification.actor, '复核员');
+assert.ok(first.summary.length >= 20 && first.highlights.length >= 2 && first.attention.length >= 20);
 assert.equal(data.valid([first]), true);
 assert.equal(data.read().length, 1);
 first.title = 'changed copy';
@@ -65,6 +66,7 @@ const feed = store.newsPublished();
 assert.equal(feed.length, 4);
 assert.equal(data.query(feed, { type: 'market', category: 'seafood', keyword: '水产到货' }).length, 1);
 assert.equal(data.query(feed, { type: 'policy', category: 'poultry', keyword: '冷链政策与标准信息库' }).length, 1);
+assert.equal(data.query(feed, { keyword: feed[0].highlights[0].slice(0, 8) }).length, 1);
 assert.equal(data.query(feed, { keyword: 'not-a-title' }).length, 0);
 assert.equal(data.query(feed, { type: 'unknown' }).length, 0);
 const newest = JSON.parse(JSON.stringify(feed[0])); newest.publication.time = '2099-01-01 12:00:00';
@@ -86,6 +88,7 @@ assert.equal(m.sourceStore, undefined);
 for (const html of [m.newsView.card(feed[0]), m.newsView.detail(feed[0])]) {
   assert.ok(html.includes(m.escape(feed[0].source.name)));
   assert.ok(html.includes(feed[0].sourcePublishedAt));
+  assert.ok(html.includes(m.escape(feed[0].summary)));
   const stack = [];
   for (const match of html.matchAll(/<\/?([a-z][\w-]*)\b[^>]*>/gi)) {
     if (match[0].startsWith('</')) assert.equal(stack.pop(), match[1]);

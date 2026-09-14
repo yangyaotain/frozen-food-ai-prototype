@@ -9,6 +9,22 @@
   function stamp() { return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' }); }
   function copy(value) { return JSON.parse(JSON.stringify(value)); }
   function snapshot(value) { const result = Object.assign({}, value); delete result.history; return copy(result); }
+  function sentences(text) { return (String(text || '').replace(/\s+/g, ' ').match(/[^。！？；]+[。！？；]?/g) || []).map(function (part) { return part.trim(); }).filter(Boolean); }
+  function shortened(text, limit) { const value = String(text || '').trim(); return value.length <= limit ? value : value.slice(0, limit - 1).replace(/[，、；：\s]+$/, '') + '…'; }
+  function highlights(value) {
+    const rows = Array.isArray(value) ? value : String(value || '').split(/\r?\n/);
+    return Array.from(new Set(rows.map(function (row) { return String(row || '').trim(); }).filter(Boolean)));
+  }
+  function fallbackSummary(content) {
+    const first = String(content || '').split(/\n\s*\n/).find(function (part) { return part.trim(); }) || '';
+    const lines = first.split('\n').filter(Boolean);
+    return shortened(lines.length > 1 && lines[0].length < 32 ? lines.slice(1).join(' ') : first, 180);
+  }
+  function fallbackHighlights(content) { return sentences(content).slice(0, 2).map(function (row) { return shortened(row, 100); }); }
+  function displayReady(item) {
+    const summary = String(item.displaySummary || '').trim(), points = highlights(item.displayHighlights), attention = String(item.displayAttention || '').trim();
+    return summary.length >= 20 && summary.length <= 200 && points.length >= 2 && points.length <= 4 && points.every(function (point) { return point.length <= 100; }) && attention.length >= 20 && attention.length <= 300;
+  }
   // Fictional editorial material; numbers are frozen from the existing seed data.
   function seedEditorial(item, source) {
     item.type = source.type;
@@ -35,8 +51,8 @@
       '适用范围', '本条用于理解' + category.name + '的市场变化，不代表单户成交或订单情况。观察价格方向时同时核对连续周出库与库存，经营安排还需结合本户履约、库存结构及客户需求。'
     ];
     item.title = entry[0];
-    const paragraphs = [entry[1]];
-    for (let i = 2; i < entry.length; i += 2) paragraphs.push(entry[i] + '\n' + entry[i + 1]);
+    const paragraphs = [entry[1]], sections = [];
+    for (let i = 2; i < entry.length; i += 2) { paragraphs.push(entry[i] + '\n' + entry[i + 1]); sections.push({ title: entry[i], content: entry[i + 1] }); }
     if (!item.issueType && source.type !== 'policy') {
       const week = '2026-08-17', priorWeek = '2026-08-10';
       const price = app.priceStore.records.find(function (r) { return r.week.id === week && r.category.id === category.id && r.status === 'reviewed'; });
@@ -54,6 +70,14 @@
       }
     }
     item.content = paragraphs.join('\n\n'); item.displayTitle = item.title; item.displayContent = item.content;
+    item.displaySummary = shortened(entry[1], 200);
+    item.displayHighlights = sections.slice(0, 3).map(function (section) { return shortened(section.title + '：' + (sentences(section.content)[0] || section.content), 100); });
+    while (item.displayHighlights.length < 2) item.displayHighlights.push(shortened((sentences(entry[1])[item.displayHighlights.length] || entry[1]), 100));
+    item.displayAttention = item.type === 'policy'
+      ? '执行时应结合具体商品、批次和业务环节核对现行依据，本文不替代正式政策文件或监管要求。'
+      : item.type === 'industry'
+        ? '渠道与行业变化用于辅助理解市场背景，仍需结合本户库存、出库和履约安排判断，不直接形成经营决策。'
+        : '供需观察需结合连续期间的价格、入出库和库存共同阅读，单条资讯不用于预测价格或替代本户经营判断。';
     if (app.scenarioData && item.id === 'info-7') item.publishedAt = '2026-08-30 18:00:00';
     if (app.scenarioData && item.issueType) item.abnormal = ({ expired: '原安排截至8月25日，缺少后续有效依据', conflict: '1,260件与25.20吨口径及截止日不一致', unverifiable: '缺少实际入库日期及原始重量记录', period: item.id === 'info-8' ? '周五余额与周日期末混用' : '期初与出库期间错位一周', source: '缺少可确认的原始出处和批次关系' })[item.issueType] || item.abnormal;
     item.seedOpinion = item.status === 'verified' ? '已核对原文地址、发布时间及' + category.name + '适用范围；正文与来源版本V' + source.version + '一致。' + (item.platformFacts ? '平台参照采用8月17日至23日已复核价格及同周数量，来源观察不替代平台统计。' : '本条按资料说明范围采用，不扩展为未记载的要求。') : '已登记原文地址、发布时间与适用品类。' + (item.abnormal ? '待核对：' + item.abnormal + '。补齐依据前保持未发布。' : '来源确认及信息核验仍需分别完成。');
@@ -142,7 +166,8 @@
       const source = find(item.sourceId), before = snapshot(item);
       const review = item.history.slice().reverse().find(function (h) { return h.action === '核验通过'; });
       item.releaseVersion++;
-      item.publication = { id: item.id, status: 'published', title: item.displayTitle || item.title, content: item.displayContent || item.content, type: item.type,
+      item.publication = { id: item.id, status: 'published', title: item.displayTitle || item.title, summary: item.displaySummary || fallbackSummary(item.displayContent || item.content),
+        highlights: highlights(item.displayHighlights).length ? highlights(item.displayHighlights) : fallbackHighlights(item.displayContent || item.content), content: item.displayContent || item.content, attention: item.displayAttention || '', type: item.type,
         categories: item.categories.map(function (id) { const c = categories.find(function (category) { return category.id === id; }); return { id: c.id, name: c.name }; }),
         validThrough: item.validThrough, sourcePublishedAt: item.publishedAt, version: item.version, source: { name: source.name, url: source.url, version: source.version },
         verification: { actor: review ? review.actor : '复核员', time: review ? review.at : item.history[0].at },
@@ -166,7 +191,7 @@
       return items.filter(function (item) { return (!filters.sourceId || item.sourceId === filters.sourceId) && (!filters.category || item.categories.includes(filters.category)) &&
         (!filters.type || item.type === filters.type) && (!filters.publication || publicationState(item) === filters.publication) &&
         (!filters.status || item.status === filters.status) && (!filters.abnormal || Boolean(item.abnormal)) &&
-        (!keyword || (item.title + ' ' + (item.displayTitle || '') + ' ' + find(item.sourceId).name).toLowerCase().includes(keyword)); });
+        (!keyword || (item.title + ' ' + (item.displayTitle || '') + ' ' + (item.displaySummary || '') + ' ' + highlights(item.displayHighlights).join(' ') + ' ' + find(item.sourceId).name).toLowerCase().includes(keyword)); });
     }
     function save(input, id, expectedVersion) {
       const current = id ? find(id) : null;
@@ -218,6 +243,7 @@
       if (!text || text.length > 200) return { valid: false, message: '请填写 1–200 字核验依据或不通过原因。' };
       if (decision === 'verified' && source.status !== 'confirmed') return { valid: false, message: '请先确认来源，再将信息标记为核验通过。' };
       if (decision === 'verified' && !Object.prototype.hasOwnProperty.call(types, item.type)) return { valid: false, message: '请先在整理展示稿中选择有效资讯分类。' };
+      if (decision === 'verified' && !displayReady(item)) return { valid: false, message: '请先补充20–200字摘要、2–4条核心要点和20–300字关注事项，再核验通过。' };
       if (decision === 'verified' && item.validThrough && item.validThrough < '2026-09-06') return { valid: false, message: '资讯在数据截至日2026-09-06已过期，请补充有效依据和展示稿；不能直接核验通过。' };
       if (decision === 'verified' && app.scenarioData && /待核实|待核验|待确认/.test((item.displayTitle || '') + (item.displayContent || ''))) return { valid: false, message: '展示稿仍含未完成核验的提示，请整理为核验后的业务内容或选择核验不通过。' };
       if (decision === 'verified' && item.issueType && !item.resolution) return { valid: false, message: '请先通过“整理展示稿”填写核验处理说明，说明问题如何解决。' };
@@ -253,14 +279,17 @@
       const item = findItem(id), title = String(input.title || '').trim(), content = String(input.content || '').trim(), resolution = String(input.resolution || '').trim(), until = String(input.until || '');
       const date = new Date(until + 'T00:00:00Z');
       if (!item || item.version !== version) return { valid: false, message: '信息已变化，请重新打开。' };
+      const summary = String(input.summary === undefined ? item.displaySummary || fallbackSummary(content) : input.summary).trim();
+      const points = highlights(input.highlights === undefined ? item.displayHighlights || fallbackHighlights(content) : input.highlights);
+      const attention = String(input.attention === undefined ? item.displayAttention || '' : input.attention).trim();
       // Omitted classification preserves existing callers and the article's own choice.
       const type = input.type === undefined ? item.type : String(input.type);
       if (!Object.prototype.hasOwnProperty.call(types, type)) return { valid: false, message: '请选择有效资讯分类。' };
       const treatment = input.treatment || item.treatment || (content !== item.content && item.issueType === 'expired' ? 'updated' : item.issueType ? 'unresolved' : 'corrected');
-      if (type === item.type && title === (item.displayTitle || item.title) && content === (item.displayContent || item.content) && resolution === (item.resolution || '') && until === (item.validThrough || '') && treatment === (item.treatment || (item.issueType ? 'unresolved' : 'corrected'))) return { valid: true, unchanged: true, item: item };
+      if (type === item.type && title === (item.displayTitle || item.title) && summary === (item.displaySummary || '') && points.join('\n') === highlights(item.displayHighlights).join('\n') && content === (item.displayContent || item.content) && attention === (item.displayAttention || '') && resolution === (item.resolution || '') && until === (item.validThrough || '') && treatment === (item.treatment || (item.issueType ? 'unresolved' : 'corrected'))) return { valid: true, unchanged: true, item: item };
       if (!['updated', 'corrected', 'unresolved'].includes(treatment)) return { valid: false, message: '请选择有效处理方式。' };
-      if (!title || title.length > 100 || !content || content.length > 3000 || !resolution || resolution.length > 500 || !/^\d{4}-\d{2}-\d{2}$/.test(until) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== until) return { valid: false, message: '请填写标题1–100字、正文1–3000字、处理依据1–500字及有效截止日期。' };
-      const before = snapshot(item); Object.assign(item, { type: type, signal: null, context: '采用人工整理后的展示内容，需按实际期间与指标重新核对，不沿用原文方向判断。', treatment: treatment, displayTitle: title, displayContent: content, resolution: resolution, validThrough: until, status: 'pending', verifiedSourceVersion: null, publication: null, version: item.version + 1 });
+      if (!title || title.length > 100 || summary.length < 20 || summary.length > 200 || points.length < 2 || points.length > 4 || points.some(function (point) { return point.length > 100; }) || !content || content.length > 3000 || attention.length < 20 || attention.length > 300 || !resolution || resolution.length > 500 || !/^\d{4}-\d{2}-\d{2}$/.test(until) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== until) return { valid: false, message: '请填写标题1–100字、摘要20–200字、2–4条核心要点（每条不超过100字）、正文1–3000字、关注事项20–300字、处理依据1–500字及有效截止日期。' };
+      const before = snapshot(item); Object.assign(item, { type: type, signal: null, context: '采用人工整理后的展示内容，需按实际期间与指标重新核对，不沿用原文方向判断。', treatment: treatment, displayTitle: title, displaySummary: summary, displayHighlights: points, displayContent: content, displayAttention: attention, resolution: resolution, validThrough: until, status: 'pending', verifiedSourceVersion: null, publication: null, version: item.version + 1 });
       item.history.push({ action: '整理展示稿，重新核验', actor: actorName('维护员'), at: stamp(), opinion: resolution, before: before, after: snapshot(item) }); syncNews(); return { valid: true, item: item };
     }
     return { sources: sources, items: items, find: find, findItem: findItem, querySources: querySources, queryItems: queryItems, publicationState: publicationState, save: save, confirm: confirm, verify: verify, flag: flag, eligible: eligible, publish: publish, editDisplay: editDisplay, newsPublished: newsPublished };

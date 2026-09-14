@@ -34,6 +34,8 @@ const acquired = source.items[0];
 assert.equal(acquired.status, 'pending'); assert.equal(acquired.publication, null);
 assert.equal(acquired.type, s.type); assert.ok(acquired.infoUrl); assert.ok(acquired.obtainedAt);
 assert.equal(source.publish(acquired.id, acquired.version, s.version).valid, false);
+assert.equal(source.verify(acquired.id, acquired.version, 'verified', '原文与来源范围已核对。', true).valid, false, '新增资讯需先补齐小程序展示结构');
+assert.equal(source.editDisplay(acquired.id, acquired.version, { title: acquired.displayTitle, summary: '本条资讯已核对来源、发布时间和适用品类，并整理为可用于小程序阅读的内容摘要。', highlights: '来源地址与发布时间已经核对。\n适用品类处于当前来源确认范围内。', content: acquired.displayContent, attention: '本条信息仅用于理解来源所述业务范围，仍需结合实际期间和本户经营数据判断。', until: acquired.validThrough, resolution: '已对照原文补充摘要、核心要点和关注事项。' }).valid, true);
 assert.equal(source.verify(acquired.id, acquired.version, 'verified', '原文与来源范围已核对。', true).valid, true);
 assert.equal(source.newsPublished().length, 0);
 assert.equal(source.publish(acquired.id, acquired.version, s.version).valid, true);
@@ -74,6 +76,7 @@ let body = '冻品交接按同一批次记录净重，统一截止日期后比�
 const updated = setup({ read: source => [{ articleId: 'stable-1', url: source.url + 'article/1#top', title: '冻品批次交接记录', content: body, publishedAt: '2026-09-10 09:00:00', categories: ['poultry'] }] });
 await updated.collection.run('src-1');
 const item = updated.source.items[0], original = item.content;
+assert.equal(updated.source.editDisplay(item.id, item.version, { title: item.displayTitle, summary: '本条资讯已核对冷链交接的批次、净重和统计截止日期，并形成对外展示摘要。', highlights: '同一批次交接记录统一使用净重口径。\n比较数量前先统一业务统计截止日期。', content: item.displayContent, attention: '本条内容用于冷链交接资料核对，不直接用于判断需求、价格或单户经营结果。', until: '2026-10-31', resolution: '已对照来源原文整理展示内容。' }).valid, true);
 updated.source.verify(item.id, item.version, 'verified', '核对通过。', true);
 updated.source.publish(item.id, item.version, 1);
 const frozenPublication = JSON.stringify(item.publication);
@@ -84,6 +87,8 @@ assert.equal(updateResult.batch.updated, 1); assert.equal(item.type, 'industry')
 assert.equal(item.publication, null); assert.equal(item.status, 'pending');
 assert.equal(item.history.at(-1).before.content, original);
 assert.equal(JSON.stringify(item.history.find(log => log.action === '资讯发布').after.publication), frozenPublication);
+assert.equal(updated.source.verify(item.id, item.version, 'verified', '更新原文已核对。', true).valid, false);
+assert.equal(updated.source.editDisplay(item.id, item.version, { title: item.displayTitle, summary: '更新后的资讯补充了跨周调整记录，需按同一批次和统一截止日期重新核对数量。', highlights: '新增跨周调整记录并保留原始版本。\n更新后的展示内容继续采用净重和统一截止日。', content: item.displayContent, attention: '跨周调整可能影响期间归属，完成连续期间核对前不据此判断数量变化方向。', until: '2026-10-31', resolution: '已对照更新原文重新整理摘要、要点和关注事项。' }).valid, true);
 updated.source.verify(item.id, item.version, 'verified', '更新原文已核对。', true);
 assert.equal(item.publication, null);
 updated.source.publish(item.id, item.version, 1); assert.equal(item.releaseVersion, 2);

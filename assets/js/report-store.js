@@ -14,6 +14,42 @@
     return { start: after(input.end, -7 * (Number(input.count) - 1)), end: after(input.end, 6) };
   }
   function textLimits(row) { const count = row.snapshot.categories.length; return { title: 100, summary: Math.max(3000, count * 500), signals: Math.max(3000, count * 800), advice: Math.max(4000, count * 1500) }; }
+  function rankedCategories(row) {
+    return row.snapshot.categories.slice().sort(function (a, b) {
+      const score = function (c) { return (c.own.turnover.days != null && c.own.turnover.days > 28 ? 4 : 0) + (c.share > 50 ? 3 : 0) + (c.change && Math.abs(c.change.shareDelta || 0) >= 1 ? 2 : 0) + (c.change && Math.abs(c.change.outbound.value || 0) >= 10 ? 1 : 0); };
+      return score(b) - score(a) || (b.share || 0) - (a.share || 0);
+    });
+  }
+  function contentOf(row) {
+    const totals = row.snapshot.totals, ranked = rankedCategories(row), focus = ranked.slice(0, Math.min(3, ranked.length));
+    const turnoverText = totals.turnover.days == null ? totals.turnover.reason : '数量周转' + totals.turnover.days.toFixed(2) + '天';
+    const highlights = ['期间出库' + totals.outbound.toFixed(2) + '吨、期末库存' + totals.closing.toFixed(2) + '吨，' + turnoverText + '。'];
+    focus.slice(0, 2).forEach(function (c) {
+      const change = c.change && c.change.outbound.value;
+      highlights.push(c.name + '期末库存占比' + (c.share == null ? '无法计算' : c.share.toFixed(2) + '%') + (change == null ? '，上期出库数据不足。' : '，出库较上期' + (change >= 0 ? '增加' : '减少') + Math.abs(change).toFixed(2) + '%。'));
+    });
+    const adviceHighlights = focus.map(function (c) {
+      if (c.own.turnover.days != null && c.own.turnover.days > 28) return c.name + '：数量周转' + c.own.turnover.days.toFixed(2) + '天，优先核对库存批次与连续出库节奏。';
+      if (c.share > 50) return c.name + '：期末库存占比' + c.share.toFixed(2) + '%，重点核对库存集中原因及后续出库安排。';
+      const change = c.change && c.change.outbound.value;
+      if (change != null && Math.abs(change) >= 10) return c.name + '：出库较上期' + (change >= 0 ? '增加' : '减少') + Math.abs(change).toFixed(2) + '%，核对变化是否连续及是否受集中交付影响。';
+      return c.name + '：持续观察出库节奏、库存结构与适用规格，不依据单一期间直接调整采购。';
+    }).slice(0, 4);
+    return { highlights: highlights.slice(0, 4),
+      adviceSummary: '本期建议优先核对' + focus.map(function (c) { return c.name; }).join('、') + '的库存结构、出库节奏与适用规格；市场价格仅作参照，不直接形成采购、定价或库存处置结论。',
+      adviceHighlights: adviceHighlights };
+  }
+  function validHighlights(value) { return Array.isArray(value) && value.length >= 2 && value.length <= 4 && value.every(function (item) { return typeof item === 'string' && item.trim() && item.trim().length <= 180; }); }
+  function ensureContent(row) {
+    const content = contentOf(row);
+    if (!validHighlights(row.highlights)) row.highlights = content.highlights;
+    else row.highlights = row.highlights.map(function (item) { return item.trim(); });
+    if (typeof row.adviceSummary !== 'string' || !row.adviceSummary.trim()) row.adviceSummary = content.adviceSummary;
+    else row.adviceSummary = row.adviceSummary.trim();
+    if (!validHighlights(row.adviceHighlights)) row.adviceHighlights = content.adviceHighlights;
+    else row.adviceHighlights = row.adviceHighlights.map(function (item) { return item.trim(); });
+    return row;
+  }
   function turnover(opening, closing, outbound, days) {
     const average = (opening + closing) / 2;
     return { average: round(average), times: average > 0 ? round(outbound / average) : null,
@@ -239,6 +275,7 @@
       if (!previous && latest(id)) throw new Error('该商户相同期间已有报告，保留已有版本，可编辑或修订文字。');
       const row = Object.assign(data, { id: previous ? previous.id : id, version: previous ? previous.version + 1 : 1, revision: 0, title: data.merchant.name + ' · ' + (input.kind === 'month' ? data.start.slice(0, 7) : data.start) + ' 经营' + (input.kind === 'week' ? '周报' : input.kind === 'month' ? '月报' : '报告'), status: 'pending',
         generatedAt: stamp(), updatedAt: stamp(), review: null, publication: null, history: [] });
+      ensureContent(row);
       if (scheduled) row.generation = clone(scheduled);
       event(row, scheduled ? '定期自动生成' : previous ? '按最新数据重新生成' : '生成', scheduled ? '计划时间：' + scheduled.scheduledAt + '；生成配置 V' + scheduled.configRevision + '。本户报告及经营建议一并生成，等待共同复核。' : previous ? '从 V' + previous.version + ' 创建同户同期间新数据版本；原版完整保留，报告及建议共同重新复核发布。' : '本户报告及经营建议一并生成，等待复核。', scheduled ? '系统' : undefined); records.push(row); save(); return clone(row);
     }
@@ -255,14 +292,22 @@
       const old = current(id, version, revision);
       return generate(old.kind ? { merchant: old.merchant.id, kind: old.kind, date: old.kind === 'month' ? old.start.slice(0, 7) : old.start } : { merchant: old.merchant.id, end: after(old.end, -6), count: old.count }, old);
     }
-    function textOf(row) { return { title: row.title, summary: row.summary, signals: row.signals, advice: row.advice }; }
+    function textOf(row) { return { title: row.title, summary: row.summary, highlights: row.highlights.slice(), signals: row.signals, adviceSummary: row.adviceSummary, adviceHighlights: row.adviceHighlights.slice(), advice: row.advice }; }
     function edit(id, version, revision, input) {
       const row = editable(id, version, revision);
       const limits = textLimits(row);
-      Object.keys(limits).forEach(function (key) { if (typeof input[key] !== 'string' || !input[key].trim() || input[key].trim().length > limits[key]) throw new Error(({ title: '标题', summary: '摘要', signals: '信号', advice: '建议' })[key] + '为必填，最多 ' + limits[key] + ' 字。'); });
-      if (Object.keys(limits).every(function (key) { return row[key] === input[key].trim(); })) return clone(row);
+      const normalized = {};
+      Object.keys(limits).forEach(function (key) { const value = input[key] == null ? row[key] : input[key]; if (typeof value !== 'string' || !value.trim() || value.trim().length > limits[key]) throw new Error(({ title: '标题', summary: '摘要', signals: '信号', advice: '建议' })[key] + '为必填，最多 ' + limits[key] + ' 字。'); normalized[key] = value.trim(); });
+      const adviceSummary = input.adviceSummary == null ? row.adviceSummary : input.adviceSummary;
+      const highlights = input.highlights == null ? row.highlights : input.highlights;
+      const adviceHighlights = input.adviceHighlights == null ? row.adviceHighlights : input.adviceHighlights;
+      if (typeof adviceSummary !== 'string' || !adviceSummary.trim() || adviceSummary.trim().length > 600) throw new Error('建议摘要为必填，最多 600 字。');
+      if (!validHighlights(highlights)) throw new Error('经营结论需填写 2–4 条，每条最多 180 字。');
+      if (!validHighlights(adviceHighlights)) throw new Error('重点关注事项需填写 2–4 条，每条最多 180 字。');
+      normalized.adviceSummary = adviceSummary.trim(); normalized.highlights = highlights.map(function (item) { return item.trim(); }); normalized.adviceHighlights = adviceHighlights.map(function (item) { return item.trim(); });
+      if (Object.keys(normalized).every(function (key) { return Array.isArray(normalized[key]) ? JSON.stringify(row[key]) === JSON.stringify(normalized[key]) : row[key] === normalized[key]; })) return clone(row);
       const before = textOf(row);
-      Object.keys(limits).forEach(function (key) { row[key] = input[key].trim(); }); row.status = 'pending'; row.review = null;
+      Object.keys(normalized).forEach(function (key) { row[key] = normalized[key]; }); row.status = 'pending'; row.review = null;
       event(row, '编辑报告及建议', '文字变化，报告与建议共同重新待复核。');
       Object.assign(row.history[row.history.length - 1], { before: before, after: textOf(row) }); save(); return clone(row);
     }
@@ -312,7 +357,7 @@
       records.filter(function (r) { return r.merchant.id === merchantId && r.status === 'published' && (!app.publicationPolicy || app.publicationPolicy.allowed(r)); }).forEach(function (r) { if (!result.has(r.id) || result.get(r.id).version < r.version) result.set(r.id, r); });
       return Array.from(result.values()).map(function (r) {
         return clone({ id: r.id, merchant: r.merchant, version: r.version, title: r.title, status: r.status, start: r.start, end: r.end, count: r.count, kind: r.kind, days: r.days,
-          generatedAt: r.generatedAt, summary: r.summary, signals: r.signals, advice: r.advice, snapshot: r.snapshot,
+          generatedAt: r.generatedAt, summary: r.summary, highlights: r.highlights, signals: r.signals, adviceSummary: r.adviceSummary, adviceHighlights: r.adviceHighlights, advice: r.advice, snapshot: r.snapshot,
           review: { actor: r.review.actor, time: r.review.time }, publication: r.publication });
       });
     }
@@ -320,7 +365,7 @@
     if (options.storage) {
       try {
         const saved = JSON.parse(options.storage.getItem(storageKey));
-        if (saved && saved.schema === 1 && Array.isArray(saved.records) && saved.records.every(function (r) { return r.id && states[r.status] && r.merchant && merchants.some(function (m) { return m.id === r.merchant.id; }) && r.snapshot && Array.isArray(r.snapshot.rows) && Array.isArray(r.history) && Number.isInteger(r.version) && Number.isInteger(r.revision); })) { records = saved.records; restored = true; }
+        if (saved && saved.schema === 1 && Array.isArray(saved.records) && saved.records.every(function (r) { return r.id && states[r.status] && r.merchant && merchants.some(function (m) { return m.id === r.merchant.id; }) && r.snapshot && Array.isArray(r.snapshot.rows) && Array.isArray(r.history) && Number.isInteger(r.version) && Number.isInteger(r.revision); })) { records = saved.records.map(ensureContent); restored = true; }
       } catch (_) { storageAvailable = false; }
     }
     if (options.seed !== false) {

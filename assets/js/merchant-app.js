@@ -19,10 +19,7 @@
   function match(rows, mode, filters) {
     if (mode === 'news') {
       const keyword = String(filters.keyword || '').trim().toLowerCase();
-      return app.newsData.query(rows, { type: filters.type, category: filters.category }).filter(function (r) {
-        const raw = r.title + ' ' + r.source.name, shown = app.presentation ? app.presentation.text(raw) : raw;
-        return !keyword || (shown + ' ' + raw).toLowerCase().includes(keyword);
-      });
+      return app.newsData.query(rows, { type: filters.type, category: filters.category, keyword: keyword });
     }
     return sort(rows.filter(function (r) { return (!filters.month || r.start.slice(0, 7) <= filters.month && r.end.slice(0, 7) >= filters.month) && (!filters.category || r.snapshot.categories.some(function (c) { return c.id === filters.category; })) && (!filters.kind || r.kind === filters.kind) && (!filters.count || String(r.count) === filters.count); }));
   }
@@ -58,13 +55,13 @@
     function pickerButton(action, label, selected) { return ui.button(action, 'down', label, ' aria-pressed="' + Boolean(selected) + '" aria-haspopup="dialog"'); }
     function filterMarkup() {
       const f = state.filters;
-      if (mode === 'news') return '<div class="mini-filter"><form class="mini-search" role="search"><label><span class="sr-only">搜索资讯标题或来源</span><input type="search" name="keyword" class="form-control" maxlength="100" enterkeyhint="search" placeholder="搜索资讯标题、来源" value="' + esc(f.keyword) + '"></label><button type="submit" class="mini-search-submit" aria-label="搜索资讯">' + app.icon('search') + '<span class="sr-only">搜索</span></button></form>' + ui.chips('type', [['', '全部']].concat(Object.entries(app.newsTypes)), f.type) + '<div class="mini-filter-row">' + pickerButton('category', categories.find(function (c) { return c[0] === f.category; })[1], f.category) + '</div></div>';
+      if (mode === 'news') return '<div class="mini-filter"><form class="mini-search" role="search"><label><span class="sr-only">搜索资讯标题、摘要、要点或来源</span><input type="search" name="keyword" class="form-control" maxlength="100" enterkeyhint="search" placeholder="搜索标题、摘要、要点或来源" value="' + esc(f.keyword) + '"></label><button type="submit" class="mini-search-submit" aria-label="搜索资讯">' + app.icon('search') + '<span class="sr-only">搜索</span></button></form>' + ui.chips('type', [['', '全部']].concat(Object.entries(app.newsTypes)), f.type) + '<div class="mini-filter-row">' + pickerButton('category', categories.find(function (c) { return c[0] === f.category; })[1], f.category) + '</div></div>';
       return '<div class="mini-filter"><div class="mini-filter-row">' + (mode === 'market' ? pickerButton('category', categories.find(function (c) { return c[0] === f.category; })[1], f.category) : '') + pickerButton('month', f.month || '全部月份', f.month) + pickerButton('kind', f.kind === 'week' ? '周报' : f.kind === 'month' ? '月报' : '周报 / 月报', f.kind) + '</div></div>';
     }
     function redrawFilters() { filterBox.innerHTML = filterMarkup(); }
     function version(r) { return mode === 'news' ? r.publication.version : r.version; }
     function detail(item) { return item.mode === 'news' ? view.news(item.record) : item.mode === 'market' ? view.market(item.record, item.category) : view.report(item.record, item.mode === 'advice'); }
-    function card(r, index) { return view.card(r, mode, { feature: index === 0 && mode !== 'news', category: state.filters.category, unread: own ? store.unread(r, mode) : '' }); }
+    function card(r, index) { return view.card(r, mode, { feature: index === 0, category: state.filters.category, unread: own ? store.unread(r, mode) : '' }); }
     function loadMessage() {
       const rows = match(all(), mode, state.filters);
       loadStatus.hidden = Boolean(opened) || !rows.length;

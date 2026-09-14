@@ -34,3 +34,4 @@
 @media (max-width: 1500px) { .analysis-charts { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 1100px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .signal-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .metric-grid { grid-template-columns: minmax(0, 1fr); } .metric-card, .analysis-body, .analysis-method { padding: var(--space-4); } }
+.analysis-query .form-field[hidden] { display: none; }

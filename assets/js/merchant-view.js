@@ -5,6 +5,13 @@
   const pct = function (p) { return p && p.value != null ? (p.value > 0 ? '+' : '') + num(p.value) + '%' : esc(p && p.reason || '数据不足'); };
   const prose = function (text) { return '<p class="mini-prose">' + esc(text) + '</p>'; };
   const note = function (text) { return '<p class="mini-muted">' + esc(text) + '</p>'; };
+  function highlights(items, compact) { return '<ul class="mini-highlights' + (compact ? ' mini-highlights--compact' : '') + '">' + (items || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('') + '</ul>'; }
+  function article(text) {
+    return '<div class="mini-article">' + String(text || '').split(/\n\s*\n/).filter(Boolean).map(function (part) {
+      const lines = part.split('\n');
+      return lines.length > 1 && lines[0].length < 32 ? '<section><h3>' + esc(lines.shift()) + '</h3>' + prose(lines.join('\n')) + '</section>' : prose(part);
+    }).join('') + '</div>';
+  }
   function section(title, html) { return '<section class="mini-section"><h2>' + esc(title) + '</h2>' + html + '</section>'; }
   function fold(title, html) { return '<details class="mini-details"><summary><span>' + esc(title) + '</span>' + app.icon('down') + '</summary><div class="mini-details-body">' + html + '</div></details>'; }
   function pairs(items) { return '<dl class="mini-pairs">' + items.map(function (p) { return '<div><dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd></div>'; }).join('') + '</dl>'; }
@@ -28,12 +35,15 @@
     const v = c.monthly; if (!v) return '';
     return fold(c.name + ' · 完整自然月对照', note('上月：' + v.previous.start + ' 至 ' + v.previous.end + '；上年同月：' + v.year.start + ' 至 ' + v.year.end + '。') + ['price', 'inbound', 'outbound', 'closing'].map(function (k) {
       return datum(({ price: '均价（元/吨）', inbound: '入库（吨）', outbound: '出库（吨）', closing: '月末库存（吨）' })[k], [['本月', num(c.totals[k])], ['上月', num(v.previous.totals[k])], ['环比变化量', num(v.changes.previous[k].delta)], ['环比', pct(v.changes.previous[k])], ['上年同月', num(v.year.totals[k])], ['同比变化量', num(v.changes.year[k].delta)], ['同比', pct(v.changes.year[k])]]);
-    }).join('') + note('价格按覆盖天数加权，库存取月末；月天数不同，入出库比较月累计。') + ['previous', 'year'].map(function (key) { return v[key].missing.length ? note((key === 'previous' ? '上月' : '上年同月') + '缺失说明：' + v[key].missing.join('；')) : ''; }).join(''));
+    }).join('') + note('价格按周均价覆盖天数加权，库存取月末；月天数不同，入出库比较月累计。') + ['previous', 'year'].map(function (key) { return v[key].missing.length ? note((key === 'previous' ? '上月' : '上年同月') + '缺失说明：' + v[key].missing.join('；')) : ''; }).join(''));
   }
   function market(r, categoryId) {
     const categories = r.snapshot.categories.filter(function (c) { return !categoryId || c.id === categoryId; });
-    return '<article class="mini-document">' + header(r) + section('本期行情摘要', prose(r.summary) + (categoryId ? note('摘要保留整份发布内容；下方数据展示所选品类。') : '')) + categories.map(function (c) {
-      const content = section(c.name + ' · 量价概况', metrics([[(r.kind === 'month' ? '估算月均价' : '周均价格'), c.totals.price, '元/吨'], ['期末库存', c.totals.closing, '吨'], ['期间入库', c.totals.inbound, '吨'], ['期间出库', c.totals.outbound, '吨']]) + chart(c.series, 'price', '价格走势', '元/吨') + chart(c.series, 'closing', '库存走势', '吨') + note(c.series.length === 1 ? '单周简报仅有一个数据点，不能据此判断期内趋势。' : '按简报内各周片段展示；片段首尾变化不是月度环比。') + (c.anomalies.length ? prose(c.anomalies.join('\n')) : '')) + fold(c.name + ' · 量价明细', c.series.map(function (p) { return datum(p.start + ' 至 ' + p.end, [['覆盖天数', p.days + ' 天'], ['价格', num(p.price) + ' 元/吨'], ['入库', num(p.inbound) + ' 吨'], ['出库', num(p.outbound) + ' 吨'], ['期末库存', num(p.closing) + ' 吨']]); }).join('')) + monthComparison(c);
+    return '<article class="mini-document">' + header(r) + section('本期行情摘要', prose(r.summary) + (categoryId ? note('摘要与重点保留整份发布内容；下方数据展示所选品类。') : '')) + section('本期重点', highlights(r.highlights)) + categories.map(function (c) {
+      const priceTitle = r.kind === 'week' ? '本周平均价格' : '价格趋势';
+      const stockTitle = r.kind === 'week' ? '周末库存' : '库存趋势';
+      const chartNote = r.kind === 'week' ? '价格为本周已复核周均价，库存取周末值；单周不绘制期内趋势。' : '价格节点为月内各周的周均价，库存节点为对应周片段期末库存。';
+      const content = section(c.name + ' · 量价概况', metrics([[(r.kind === 'month' ? '估算月均价' : '周均价格'), c.totals.price, '元/吨'], ['期末库存', c.totals.closing, '吨'], ['期间入库', c.totals.inbound, '吨'], ['期间出库', c.totals.outbound, '吨']]) + app.bulletinView.chart(c, 'price', priceTitle, '元/吨') + app.bulletinView.chart(c, 'closing', stockTitle, '吨') + note(chartNote) + (c.anomalies.length ? prose(c.anomalies.join('\n')) : '')) + fold(c.name + ' · 周度量价明细', c.series.map(function (p) { return datum(p.start + ' 至 ' + p.end, [['覆盖天数', p.days + ' 天'], ['周均价', num(p.price) + ' 元/吨'], ['入库', num(p.inbound) + ' 吨'], ['出库', num(p.outbound) + ' 吨'], ['期末库存', num(p.closing) + ' 吨']]); }).join('')) + monthComparison(c);
       return categories.length > 1 ? fold(c.name + ' · 均价 ' + num(c.totals.price) + ' 元/吨', content) : content;
     }).join('') + fold('异常、季节与供需观察', prose(r.signals)) + sources(r) + disclaimer + '</article>';
   }
@@ -49,7 +59,7 @@
   }
   function adviceContent(r) {
     const lines = r.advice.split(/\n\s*\n/).filter(Boolean);
-    return section('本户经营建议', note('依据期间：' + r.start + ' 至 ' + r.end + ' · 与报告共同复核 V' + r.version) + lines.map(function (text) {
+    return section('分品类建议与依据', note('依据期间：' + r.start + ' 至 ' + r.end + ' · 与报告共同复核 V' + r.version) + lines.map(function (text) {
       const parts = text.split('\n'), title = parts[0];
       if (title === '资讯背景核对') return fold(title, prose(parts.slice(1).join('\n')));
       if (!r.snapshot.categories.some(function (c) { return c.name === title; })) return '<div class="mini-advice-item">' + prose(text) + '</div>';
@@ -62,9 +72,10 @@
     const s = r.snapshot, t = s.totals;
     let html = header(r, advice ? '本户经营建议 · ' + app.reportView.periodLabel(r) : r.title);
     if (advice) {
-      html += adviceContent(r) + fold('关注事项与经营分析', prose(r.signals)) + comparisons(s, r.kind) + relatedMarket(r) + section('适用范围与边界', prose('适用于' + r.merchant.name + '。仅基于本户数量与市场汇总，缺少订单、毛利、批次库龄、保质期等信息，不能据此确定采购、定价或库存处置决策。') + disclaimer);
+      html += section('建议摘要', prose(r.adviceSummary)) + section('重点关注事项', highlights(r.adviceHighlights)) + adviceContent(r) + fold('关注事项与经营分析', prose(r.signals)) + comparisons(s, r.kind) + relatedMarket(r) + section('适用范围与边界', prose('适用于' + r.merchant.name + '。仅基于本户数量与市场汇总，缺少订单、毛利、批次库龄、保质期等信息，不能据此确定采购、定价或库存处置决策。') + disclaimer);
     } else {
       html += section('经营概况', metrics([['期末库存', t.closing, '吨'], ['期间出库', t.outbound, '吨'], ['期间入库', t.inbound, '吨'], ['期初库存', t.opening, '吨']]) + prose(r.summary));
+      html += section('经营结论', highlights(r.highlights));
       html += section('周转表现', metrics([['周转天数', t.turnover.days, '天'], ['周转次数', t.turnover.times, '次 / 本期间']]) + pairs([['平均库存', num(t.turnover.average) + ' 吨'], ['期间天数', app.reportView.periodDays(r) + ' 天']]) + note(t.turnover.reason || '数量周转口径，非财务成本周转；周转关注阈值为28天。'));
       html += section('品类结构', note('按本户期末库存占比') + s.categories.map(function (c) { return '<div class="mini-datum"><strong>' + esc(c.name) + ' · ' + (c.share == null ? '无期末库存占比' : num(c.share) + '%') + '</strong>' + (c.share != null ? '<progress class="mini-structure" max="100" value="' + c.share + '" aria-label="' + esc(c.name + '库存占比') + '"></progress>' : '') + pairs([['期末库存', num(c.own.closing) + ' 吨'], ['期间出库', num(c.own.outbound) + ' 吨'], ['期间入库', num(c.own.inbound) + ' 吨'], ['周转天数', c.own.turnover.days == null ? c.own.turnover.reason || '无法计算' : num(c.own.turnover.days) + ' 天']]) + '</div>'; }).join(''));
       html += section('本户库存走势', chart(s.series, 'closing', r.kind === 'month' ? '片段期末库存' : '周末库存', '吨'));
@@ -76,13 +87,15 @@
     return '<article class="mini-document">' + html + sources(r) + disclaimer + '</article>';
   }
   function news(r) {
-    return '<article class="mini-document"><header><div class="mini-tags"><span class="mini-tag">' + esc(app.newsView.types[r.type]) + '</span><span class="mini-tag">已核验发布</span></div><h2>' + esc(r.title) + '</h2>' + note(r.source.name + ' · ' + r.sourcePublishedAt) + note('适用品类：' + r.categories.map(function (c) { return c.name; }).join('、')) + '</header>' + '<section class="mini-section">' + prose(r.content) + '</section>' + fold('来源、核验与发布信息', pairs([['来源', r.source.name], ['来源地址', r.source.url], ['原文时间', r.sourcePublishedAt], ['核验', r.verification.actor + ' · ' + r.verification.time], ['平台发布', r.publication.actor + ' · ' + r.publication.time], ['来源版本', 'V' + r.source.version], ['信息版本', 'V' + r.version], ['发布版本', 'V' + r.publication.version], ['有效截止', r.validThrough || '旧版本未记录']])) + disclaimer + '</article>';
+    let body = String(r.content || '').trim(), lead = String(r.summary || '').trim();
+    if (lead && body.startsWith(lead)) body = body.slice(lead.length).replace(/^\s+/, '');
+    return '<article class="mini-document mini-news-document"><header><div class="mini-tags"><span class="mini-tag">' + esc(app.newsView.types[r.type]) + '</span><span class="mini-tag">已核验发布</span></div><h2>' + esc(r.title) + '</h2>' + note(r.source.name + ' · ' + r.sourcePublishedAt) + note('适用品类：' + r.categories.map(function (c) { return c.name; }).join('、')) + '</header>' + section('资讯摘要', prose(lead || r.content)) + ((r.highlights || []).length ? section('核心要点', highlights(r.highlights)) : '') + section('资讯正文', article(body || r.content)) + (r.attention ? section('关注事项', '<div class="mini-news-attention">' + app.icon('info') + prose(r.attention) + '</div>') : '') + fold('来源、核验与发布信息', pairs([['来源', r.source.name], ['来源地址', r.source.url], ['原文时间', r.sourcePublishedAt], ['核验', r.verification.actor + ' · ' + r.verification.time], ['平台发布', r.publication.actor + ' · ' + r.publication.time], ['来源版本', 'V' + r.source.version], ['信息版本', 'V' + r.version], ['发布版本', 'V' + r.publication.version], ['有效截止', r.validThrough || '旧版本未记录']])) + disclaimer + '</article>';
   }
   function card(r, mode, options) {
     options = options || {};
     const isNews = mode === 'news', isMarket = mode === 'market', advice = mode === 'advice';
     const title = isNews ? r.title : isMarket ? r.title : (advice ? '本户经营建议' : '本户经营报告') + ' · ' + app.reportView.periodLabel(r);
-    let briefMetrics = '';
+    let briefMetrics = '', cardHighlights = '';
     if (options.feature && !isNews && !advice) {
       if (isMarket) {
         const selected = r.snapshot.categories.find(function (c) { return c.id === options.category; });
@@ -90,10 +103,15 @@
       }
       else briefMetrics = metrics([['期末库存', r.snapshot.totals.closing, '吨'], ['周转天数', r.snapshot.totals.turnover.days, '天']]);
     }
-    return '<article class="mini-card' + (options.feature ? ' mini-feature' : '') + '"><a href="#' + esc(mode) + '" class="mini-card-link" data-open="' + esc(r.id) + '"><div class="mini-tags"><span class="mini-tag">' + esc(isNews ? app.newsView.types[r.type] : isMarket ? r.kind === 'week' ? '行情周报' : '行情月报' : '本户专属') + '</span>' + (!isNews ? '<span class="mini-muted">AI · 已发布 V' + r.version + '</span>' : '') + (options.unread ? '<span class="mini-tag mini-tag--unread">' + esc(options.unread) + '</span>' : '') + '</div><h2>' + esc(title) + '</h2>' + note(isNews ? r.source.name + ' · ' + r.sourcePublishedAt.slice(0, 10) : r.start + ' 至 ' + r.end) + briefMetrics + '<p class="mini-excerpt">' + esc(isNews ? r.content : advice ? r.advice : r.summary) + '</p><div class="mini-card-foot"><span>' + esc(isNews ? r.categories.map(function (c) { return c.name; }).join(' / ') : r.publication.time.slice(0, 10) + ' 发布') + '</span></div></a></article>';
+    if (isNews && options.feature && (r.highlights || []).length) cardHighlights = highlights(r.highlights.slice(0, 2), true);
+    else if (isMarket && options.feature) cardHighlights = highlights(r.highlights.slice(0, 2), true);
+    else if (advice) cardHighlights = highlights(r.adviceHighlights.slice(0, options.feature ? 2 : 1), options.feature);
+    else if (!isNews && !isMarket) cardHighlights = highlights(r.highlights.slice(0, options.feature ? 2 : 1), options.feature);
+    return '<article class="mini-card' + (options.feature ? ' mini-feature' : '') + '"><a href="#' + esc(mode) + '" class="mini-card-link" data-open="' + esc(r.id) + '"><div class="mini-tags"><span class="mini-tag">' + esc(isNews ? app.newsView.types[r.type] : isMarket ? r.kind === 'week' ? '行情周报' : '行情月报' : '本户专属') + '</span>' + (options.feature ? '<span class="mini-tag mini-tag--latest">最新发布</span>' : '') + (!isNews ? '<span class="mini-muted">AI · 已发布 V' + r.version + '</span>' : '') + (options.unread ? '<span class="mini-tag mini-tag--unread">' + esc(options.unread) + '</span>' : '') + '</div><h2>' + esc(title) + '</h2>' + note(isNews ? r.source.name + ' · ' + r.sourcePublishedAt.slice(0, 10) : r.start + ' 至 ' + r.end) + briefMetrics + '<p class="mini-excerpt">' + esc(isNews ? r.summary || r.content : advice ? r.adviceSummary : r.summary) + '</p>' + cardHighlights + '<div class="mini-card-foot"><span>' + esc(isNews ? r.categories.map(function (c) { return c.name; }).join(' / ') : r.publication.time.slice(0, 10) + ' 发布') + '</span></div></a></article>';
   }
   // Actual CSS width drives chart coordinates. Font remains the shared 12px token.
   function charts(root) {
+    const bulletinCleanup = app.bulletinView.mount(root);
     const charts = Array.from(root.querySelectorAll('[data-chart]'));
     function draw(node) {
       const spec = JSON.parse(node.dataset.chart), plot = node.querySelector('[data-plot]');
@@ -111,7 +129,7 @@
     root.addEventListener('click', select); root.addEventListener('keydown', select);
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(function (entries) { entries.forEach(function (e) { draw(e.target); }); }) : null;
     if (observer) charts.forEach(function (c) { observer.observe(c); });
-    return function () { if (observer) observer.disconnect(); root.removeEventListener('click', select); root.removeEventListener('keydown', select); };
+    return function () { bulletinCleanup(); if (observer) observer.disconnect(); root.removeEventListener('click', select); root.removeEventListener('keydown', select); };
   }
   app.merchantView = { market: market, report: report, news: news, card: card, charts: charts, disclaimer: disclaimer };
 }());

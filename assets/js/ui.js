@@ -260,14 +260,15 @@
     form.querySelectorAll('input[name], select[name]').forEach(function (control) {
       if (!control.name || control.dataset.queryClear || control.disabled || control.readOnly) return;
       const picker = control.queryPicker;
-      if (!picker && control.tagName !== 'SELECT' && !['text', 'search', 'date'].includes(control.type)) return;
+      if (!picker && control.tagName !== 'SELECT' && !['text', 'search', 'date', 'month'].includes(control.type)) return;
       control.dataset.queryClear = 'true';
       const display = picker ? picker.element : control;
       const field = control.closest('.form-field');
       const label = field ? field.firstElementChild.textContent.trim() : control.name;
       const wrapper = document.createElement(picker ? 'div' : 'span');
-      const selection = Boolean(picker || control.tagName === 'SELECT' || control.type === 'date');
-      wrapper.className = 'query-control' + (picker || control.tagName === 'SELECT' ? ' query-control--select' : control.type === 'date' ? ' query-control--date' : '');
+      const calendar = ['date', 'month'].includes(control.type);
+      const selection = Boolean(picker || control.tagName === 'SELECT' || calendar);
+      wrapper.className = 'query-control' + (picker || control.tagName === 'SELECT' ? ' query-control--select' : calendar ? ' query-control--date' : '');
       display.before(wrapper); wrapper.appendChild(display);
       const button = document.createElement('button');
       button.type = 'button'; button.className = 'query-clear';
@@ -395,6 +396,7 @@
     app.enhanceCategorySelects(workspace);
     app.enhanceCategoryChecks(workspace);
     app.enhanceTextareaCounters(workspace);
+    if (app.bulletinView && app.bulletinView.mount) workspace.addEventListener('close', app.bulletinView.mount(workspace), { once: true });
     let dirty = false, closed = false, message = '', afterClose = null;
     function finish(notify) {
       if (closed) return;

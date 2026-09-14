@@ -103,7 +103,7 @@ for (const id of ids) {
   assert.ok(m.merchantPage.match(feed.market, 'market', { category: id }).length);
 }
 for (const id of new Set(feed.news.flatMap(row => row.categories.map(category => category.id)))) assert.ok(m.merchantPage.match(feed.news, 'news', { category: id }).length);
-assert.equal(feed.news.length, 3);
+assert.equal(feed.news.length, 9);
 assert.ok(feed.market.every(r => r.snapshot.categories.length === 12));
 for (const r of reports) {
   const feed = await m.merchantDemo.load(r.merchant.id);

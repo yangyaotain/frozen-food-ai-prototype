@@ -81,14 +81,14 @@ assert.equal(page.ids().length, 4);
 assert.equal(page.header.hidden, true); assert.equal(page.tabs.hidden, false);
 assert.equal(/data-mini="(?:refresh|more|reset)"/.test(page.container.html + page.filters.html + page.output.html), false);
 const firstCards = page.output.html;
-scrollMore(page, standalone); assert.equal(page.ids().length, 5); assert.ok(page.output.html.startsWith(firstCards)); // Appended without replacing existing cards.
+scrollMore(page, standalone); assert.equal(page.ids().length, 7); assert.ok(page.output.html.startsWith(firstCards)); // Appended without replacing existing cards.
 assert.equal(page.loadStatus.textContent, '没有更多了');
 page.scroll.scrollTop = 400; standalone.w.scrollY = 19; page.click('[data-open]', { open: page.ids()[0] });
 assert.equal(page.back.hidden, false); assert.equal(page.filters.hidden, true); assert.equal(page.scroll.scrollTop, 0);
 assert.equal(page.header.hidden, false); assert.equal(page.tabs.hidden, true);
-page.back.onclick(); assert.equal(page.scroll.scrollTop, 400); assert.equal(page.ids().length, 5); assert.equal(standalone.w.scrollY, 19);
+page.back.onclick(); assert.equal(page.scroll.scrollTop, 400); assert.equal(page.ids().length, 7); assert.equal(standalone.w.scrollY, 19);
 standalone.w.history.forward(); assert.equal(page.filters.hidden, true); page.back.onclick();
-page.click('[data-mini]', { mini: 'kind' }); page.choose('month'); assert.equal(page.ids().length, 1);
+page.click('[data-mini]', { mini: 'kind' }); page.choose('month'); assert.equal(page.ids().length, 2);
 page.click('[data-mini]', { mini: 'kind' }); page.choose(''); assert.equal(page.ids().length, 4);
 page.click('[data-mini]', { mini: 'category' });
 assert.equal(page.picker().options.length, a.categoryCatalog.ids().length + 1);
@@ -97,13 +97,13 @@ for (const id of a.categoryCatalog.ids()) { page.choose(id); assert.equal(page.i
 page.choose('');
 page = standalone.mount('news'); await tick(); assert.equal(page.ids().length, 4);
 scrollMore(page, standalone); assert.equal(page.ids().length, 8);
-page.click('[data-mini]', { mini: 'category' }); page.choose('prepared'); assert.equal(page.ids().length, 1);
+  page.click('[data-mini]', { mini: 'category' }); page.choose('prepared'); assert.equal(page.ids().length, 2);
 page.choose(''); scrollMore(page, standalone);
 page.filters.input.value = '交接'; assert.equal(page.ids().length, 8); // Typing is not querying.
-page.click('[data-filter]', { filter: 'type', value: 'policy' }); assert.equal(page.ids().length, 1); // Selection includes current text.
+  page.click('[data-filter]', { filter: 'type', value: 'policy' }); assert.equal(page.ids().length, 2); // Selection includes current text.
 page.click('[data-filter]', { filter: 'type', value: '' }); page.filters.input.value = '交接'; page.query();
-assert.equal(page.ids().length, 1);
-if (a.presentation) { page.filters.input.value = a.presentation.text(publicData.news.find(r => r.type === 'policy').source.name); page.query(); assert.equal(page.ids().length, 1); }
+assert.equal(page.ids().length, 4);
+if (a.presentation) { page.filters.input.value = a.presentation.text(publicData.news.find(r => r.type === 'policy').source.name); page.query(); assert.equal(page.ids().length, 2); }
 page = standalone.mount('reports'); await tick(); assert.equal(page.ids().length, own.length);
 const reportId = page.ids()[0];
 page.scroll.scrollTop = 300; page.click('[data-open]', { open: reportId });
