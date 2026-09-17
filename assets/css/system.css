@@ -1,5 +1,7 @@
 /* 系统管理复用公共设计令牌，仅补充账号与权限选择布局。 */
 .topbar-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-3); margin-left: auto; }
+.topbar-requirements { border-color: transparent; background: transparent; color: var(--color-muted); }
+.topbar-requirements:hover { border-color: var(--color-border); background: var(--color-primary-soft); color: var(--color-primary); }
 .account-menu { position: relative; font-size: var(--font-control); }
 .account-menu > summary { list-style: none; }
 .account-menu > summary::-webkit-details-marker { display: none; }

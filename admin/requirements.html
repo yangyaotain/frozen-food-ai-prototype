@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>需求说明 · 冻品 AI 行情研判</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/common.css">
+  <link rel="stylesheet" href="../assets/css/requirements.css">
+</head>
+<body class="requirements-page">
+  <header class="requirements-topbar">
+    <a class="requirements-brand" href="./index.html" aria-label="返回市场管理端">
+      <span class="brand-mark" aria-hidden="true">丰</span>
+      <span><strong>冻品 AI 行情研判</strong><small>杭州五丰 · 业务需求说明</small></span>
+    </a>
+    <button type="button" class="button" data-close-page><span data-icon="close"></span><span>关闭说明</span></button>
+  </header>
+
+  <div class="requirements-layout">
+    <aside class="requirements-toc" aria-label="需求说明目录">
+      <h2>需求说明目录</h2>
+      <nav><a href="#data-architecture" aria-current="page"><span data-icon="chart"></span><span>数据架构</span></a></nav>
+    </aside>
+
+    <main class="requirements-main">
+      <section id="data-architecture" aria-labelledby="architecture-title">
+        <div class="requirements-heading">
+          <span class="requirements-heading-icon" data-icon="chart"></span>
+          <div><h1 id="architecture-title">整体业务数据架构</h1><p>从业务原始数据到治理、分析、内容生成、复核发布及双端服务的完整数据流程。</p></div>
+        </div>
+
+        <div class="diagram" aria-label="整体业务数据流程图，按从上到下顺序展示数据来源、治理、统一数据、分析、业务内容、人工复核发布和双端服务">
+          <section class="diagram-stage diagram-stage--source">
+            <div class="diagram-stage-title"><span class="diagram-step">01</span><span data-icon="source"></span><div><h2>业务原始数据</h2><p>按进入方式标注数据来源</p></div></div>
+            <div class="diagram-grid diagram-grid--three">
+              <div class="diagram-node"><span class="source-tag source-tag--manual">人工维护 / 导入</span><strong>每周平均采价</strong><p>商品、国产/进口、周均价、采价周和计量单位；线上维护或批量导入。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--system">业务系统对接</span><strong>商品与商户基础资料</strong><p>商品名称、产地属性、商户归属等基础业务信息。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--system">业务系统对接</span><strong>市场进销存</strong><p>市场进货量、销售量及期末库存，用于公共市场汇总。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--system">业务系统对接</span><strong>商户进销存</strong><p>按商户归属的本户进货、销售和库存，用于本户经营研判。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--external">其他数据源采集</span><strong>政策与行业资讯</strong><p>按来源定期获取或人工立即获取政策、行业和供需信息。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--manual">人工维护配置</span><strong>业务规则</strong><p>品类目录、商品映射、来源设置、生成周期及人员职责。</p></div>
+            </div>
+          </section>
+
+          <div class="diagram-connector"><span aria-hidden="true">↓</span><strong>进入业务治理</strong><small>价格先复核 · 商品先归类 · 数量先检查 · 资讯先核验</small></div>
+
+          <section class="diagram-stage diagram-stage--govern">
+            <div class="diagram-stage-title"><span class="diagram-step">02</span><span data-icon="check"></span><div><h2>统一口径与业务治理</h2><p>保留原始事实，形成可用于分析的业务数据</p></div></div>
+            <div class="diagram-grid diagram-grid--four">
+              <div class="diagram-node"><strong>采价维护与复核</strong><p>确认周均价格、期间、单位及异常波动；未复核价格不进入正式分析。</p></div>
+              <div class="diagram-node"><strong>商品品类映射</strong><p>将原始商品名称归入统一品类，价格、量仓、报告沿用同一口径。</p></div>
+              <div class="diagram-node"><strong>量仓质量检查</strong><p>检查期间完整性、重复、计量单位、数量平衡和样本集中情况。</p></div>
+              <div class="diagram-node"><strong>来源确认与逐篇核验</strong><p>确认资讯来源有效性、分类及展示内容；异常来源暂停展示。</p></div>
+            </div>
+          </section>
+
+          <div class="diagram-connector"><span aria-hidden="true">↓</span><strong>形成统一业务数据</strong><small>同一品类 · 同一期间 · 市场公共数据与商户本户数据分开</small></div>
+
+          <section class="diagram-stage diagram-stage--data">
+            <div class="diagram-stage-title"><span class="diagram-step">03</span><span data-icon="warehouse"></span><div><h2>统一业务数据</h2><p>各模块共享数据定义，但按用途保留业务边界</p></div></div>
+            <div class="diagram-grid diagram-grid--four">
+              <div class="diagram-node"><strong>已复核品类周均价</strong><p>价格按完整周记录；自然月价格按月内周或周片段覆盖天数加权，不造每日价格。</p></div>
+              <div class="diagram-node"><strong>市场品类量仓</strong><p>按完整周或自然月汇总市场进货、销售和期末库存。</p></div>
+              <div class="diagram-node"><strong>商户本户经营数据</strong><p>按户隔离保留本户进销存，并与公共市场数据作参照。</p></div>
+              <div class="diagram-node"><strong>已核验行业资讯</strong><p>作为行情解释和经营参考的外部背景，不替代量价指标。</p></div>
+            </div>
+          </section>
+
+          <div class="diagram-connector"><span aria-hidden="true">↓</span><strong>系统计算与业务研判</strong><small>周分析 / 月分析 · 数据质量、同比环比和业务依据同步查看</small></div>
+
+          <section class="diagram-stage diagram-stage--analysis">
+            <div class="diagram-stage-title"><span class="diagram-step">04</span><span data-icon="chart"></span><div><h2>分析与研判</h2><p>系统计算结果说明“发生了什么”，资讯提供背景解释</p></div></div>
+            <div class="diagram-grid diagram-grid--three">
+              <div class="diagram-node"><span class="source-tag source-tag--computed">系统计算</span><strong>市场量价分析</strong><p>已复核价格 + 市场量仓 → 本期指标、同比环比、量价关系、库存变化和季节对照。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--computed">系统计算</span><strong>商户经营分析</strong><p>本户进销存 + 市场公共参照 → 销售、库存、周转和品类结构研判。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--external">外部背景依据</span><strong>行业资讯研判</strong><p>已核验政策、行业和供需信息关联分析期间，辅助解释，不混入统计指标。</p></div>
+            </div>
+          </section>
+
+          <div class="diagram-connector"><span aria-hidden="true">↓</span><strong>组织为业务内容</strong><small>指标与明细作为依据 · 生成初稿不等于正式发布</small></div>
+
+          <section class="diagram-stage diagram-stage--content">
+            <div class="diagram-stage-title"><span class="diagram-step">05</span><span data-icon="report"></span><div><h2>业务内容形成</h2><p>不同内容使用对应分析和数据范围</p></div></div>
+            <div class="diagram-grid diagram-grid--four">
+              <div class="diagram-node"><strong>市场行情简报</strong><p>市场量价分析 → 周报/月报、本期重点和行情研判；公共市场内容。</p></div>
+              <div class="diagram-node"><strong>商户经营报告</strong><p>本户经营分析 → 本户周报/月报、经营结论和数据依据。</p></div>
+              <div class="diagram-node"><strong>经营建议</strong><p>同版经营报告 → 建议摘要、措施和重点关注事项；与报告共用依据。</p></div>
+              <div class="diagram-node"><strong>行业资讯展示稿</strong><p>已核验资讯 → 内容摘要、核心要点、正文和关注事项。</p></div>
+            </div>
+          </section>
+
+          <div class="diagram-connector"><span aria-hidden="true">↓</span><strong>人工复核、人工发布</strong><small>核对数据期间、来源、内容及发布范围</small></div>
+
+          <section class="diagram-stage diagram-stage--publish">
+            <div class="diagram-stage-title"><span class="diagram-step">06</span><span data-icon="shield"></span><div><h2>复核、发布与版本</h2><p>只把确认后的正式版本下发，保留当期依据和历史</p></div></div>
+            <div class="diagram-grid diagram-grid--three">
+              <div class="diagram-node"><span class="source-tag source-tag--review">人工复核发布</span><strong>行情简报</strong><p>编辑重点与正文 → 复核数据和内容 → 人工发布。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--review">人工复核发布</span><strong>经营报告与建议</strong><p>按户共同复核，报告和建议保持同一发布版本。</p></div>
+              <div class="diagram-node"><span class="source-tag source-tag--review">人工核验发布</span><strong>行业资讯</strong><p>来源确认、逐篇核验后，仍需逐篇单独发布。</p></div>
+            </div>
+            <div class="diagram-stage-note"><span data-icon="history"></span><p><strong>版本规则：</strong>发布时冻结内容、数据依据、复核发布人员和时间；新版待复核不覆盖旧已发布版，历史版本可追溯。</p></div>
+          </section>
+
+          <div class="diagram-connector"><span aria-hidden="true">↓</span><strong>按发布范围提供服务</strong><small>管理端管全流程 · 商户端只看已发布内容</small></div>
+
+          <section class="diagram-stage diagram-stage--service">
+            <div class="diagram-stage-title"><span class="diagram-step">07</span><span data-icon="building"></span><div><h2>双端业务服务</h2><p>公共内容与本户内容分开下发</p></div></div>
+            <div class="diagram-grid diagram-grid--two">
+              <div class="diagram-node"><strong>市场管理端</strong><p>维护原始数据、治理映射、查看分析、编辑复核发布，并查看来源、版本和追溯过程。</p></div>
+              <div class="diagram-node"><strong>商户端</strong><p>查看已发布的公共行业资讯和市场行情；本户报告及建议只对对应商户可见，不展示草稿和内部记录。</p></div>
+            </div>
+            <div class="diagram-stage-note"><span data-icon="info"></span><p><strong>全链路保障：</strong>人员权限限定操作职责；周期任务形成待复核内容；样本不足或过度集中限制汇总发布；操作及版本记录支持回看。</p></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../assets/js/common.js"></script>
+  <script src="../assets/js/requirements.js"></script>
+</body>
+</html>
